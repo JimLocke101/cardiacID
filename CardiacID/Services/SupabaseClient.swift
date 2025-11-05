@@ -22,7 +22,7 @@ class SupabaseClient: ObservableObject {
     private let environmentConfig = EnvironmentConfig.current
 
     // MARK: - Supabase Client
-    private var client: SupabaseClient?
+    private var client: Supabase.Client?
 
     // MARK: - Published State
     @Published private(set) var currentUser: User?
@@ -48,7 +48,7 @@ class SupabaseClient: ObservableObject {
             let supabaseURL = URL(string: environmentConfig.supabaseURL)!
 
             // Initialize Supabase client
-            self.client = SupabaseClient(
+            self.client = Supabase.Client(
                 supabaseURL: supabaseURL,
                 supabaseKey: apiKey,
                 options: SupabaseClientOptions(

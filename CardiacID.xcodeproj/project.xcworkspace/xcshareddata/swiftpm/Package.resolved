@@ -1,13 +1,22 @@
 {
-  "originHash" : "514508f3e34338c51b99ed13951a51fc4cb60c7da4950fc3ba13142bc55ac594",
+  "originHash" : "2d43c999a3c9b1dc7173a328e37095a4f1e62a7087c118c87b1fef104fe24008",
   "pins" : [
+    {
+      "identity" : "microsoft-authentication-library-for-objc",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AzureAD/microsoft-authentication-library-for-objc.git",
+      "state" : {
+        "revision" : "b2234526b486aba2e27fb4d1d707099d5624f9a6",
+        "version" : "2.5.1"
+      }
+    },
     {
       "identity" : "supabase-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/supabase/supabase-swift.git",
       "state" : {
-        "revision" : "ec607e021e6adace332eddd9e1e90ea6d4af5068",
-        "version" : "2.32.0"
+        "revision" : "65507b524f0ec09ebb6f6b1db0db1a8e4265436e",
+        "version" : "2.37.0"
       }
     },
     {

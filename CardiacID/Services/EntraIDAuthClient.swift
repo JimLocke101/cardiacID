@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import UIKit
 import MSAL
 import Combine
 
@@ -99,7 +100,8 @@ class EntraIDAuthClient: NSObject, ObservableObject {
         }
 
         // Get presenting view controller
-        guard let viewController = await UIApplication.shared.windows.first?.rootViewController else {
+        guard let windowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let viewController = await windowScene.windows.first?.rootViewController else {
             throw EntraIDError.noViewController
         }
 

@@ -363,6 +363,7 @@
 			packageReferences = (
 				FBD0FA732E73E424008E907A /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				FB6A13F92E7A497100F3F65A /* XCRemoteSwiftPackageReference "swift-algorithms" */,
+				FB000MSAL2E73E424008E907A /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FBF0C09A2E70DF24005C425B /* Products */;
@@ -976,6 +977,14 @@
 		FBD0FA732E73E424008E907A /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.37.0;
+			};
+		};
+		FB000MSAL2E73E424008E907A /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AzureAD/microsoft-authentication-library-for-objc.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.5.1;
