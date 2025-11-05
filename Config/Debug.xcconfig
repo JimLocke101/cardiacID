@@ -1,0 +1,36 @@
+//
+//  Debug.xcconfig
+//  HeartID Mobile - Debug Environment Configuration
+//
+//  Created by HeartID Team
+//  SECURITY: This file contains NO secrets - only references
+//
+
+// Environment identifier
+HEARTID_ENVIRONMENT = Debug
+
+// Feature flags
+HEARTID_ENABLE_DEBUG_LOGGING = YES
+HEARTID_ENABLE_VERBOSE_LOGGING = YES
+HEARTID_ENABLE_NETWORK_LOGGING = YES
+HEARTID_USE_MOCK_DATA = NO
+
+// API Endpoints (Development)
+HEARTID_SUPABASE_URL = https:/$()/bzxzugwguozsymqezvig.supabase.co
+HEARTID_SUPABASE_PROJECT_ID = bzxzugwguozsymqezvig
+
+// Microsoft Entra ID (Development tenant)
+// NOTE: Actual credentials stored in Keychain, these are just identifiers
+HEARTID_ENTRAID_AUTHORITY = https:/$()/login.microsoftonline.com
+HEARTID_ENTRAID_TENANT_TYPE = common
+
+// App Configuration
+HEARTID_APP_SCHEME = heartid-debug
+HEARTID_BUNDLE_ID_SUFFIX = .debug
+
+// Certificate Pinning
+HEARTID_ENABLE_SSL_PINNING = NO
+
+// Analytics
+HEARTID_ENABLE_ANALYTICS = NO
+HEARTID_ENABLE_CRASH_REPORTING = YES

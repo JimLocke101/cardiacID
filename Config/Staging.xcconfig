@@ -1,0 +1,35 @@
+//
+//  Staging.xcconfig
+//  HeartID Mobile - Staging Environment Configuration
+//
+//  Created by HeartID Team
+//  SECURITY: This file contains NO secrets - only references
+//
+
+// Environment identifier
+HEARTID_ENVIRONMENT = Staging
+
+// Feature flags
+HEARTID_ENABLE_DEBUG_LOGGING = YES
+HEARTID_ENABLE_VERBOSE_LOGGING = NO
+HEARTID_ENABLE_NETWORK_LOGGING = YES
+HEARTID_USE_MOCK_DATA = NO
+
+// API Endpoints (Staging)
+HEARTID_SUPABASE_URL = https:/$()/bzxzugwguozsymqezvig.supabase.co
+HEARTID_SUPABASE_PROJECT_ID = bzxzugwguozsymqezvig
+
+// Microsoft Entra ID (Staging tenant)
+HEARTID_ENTRAID_AUTHORITY = https:/$()/login.microsoftonline.com
+HEARTID_ENTRAID_TENANT_TYPE = organizations
+
+// App Configuration
+HEARTID_APP_SCHEME = heartid-staging
+HEARTID_BUNDLE_ID_SUFFIX = .staging
+
+// Certificate Pinning
+HEARTID_ENABLE_SSL_PINNING = YES
+
+// Analytics
+HEARTID_ENABLE_ANALYTICS = YES
+HEARTID_ENABLE_CRASH_REPORTING = YES
