@@ -7,22 +7,22 @@
 //
 
 import Foundation
+import UIKit
 import Supabase
 import Auth
-import PostgREST
 import Combine
 
 /// Production Supabase client with real database integration
-class SupabaseClient: ObservableObject {
+class SupabaseService: ObservableObject {
     // MARK: - Singleton
-    static let shared = SupabaseClient()
+    static let shared = SupabaseService()
 
     // MARK: - Dependencies
     private let credentialManager = SecureCredentialManager.shared
     private let environmentConfig = EnvironmentConfig.current
 
     // MARK: - Supabase Client
-    private var client: Supabase.Client?
+    private var client: SupabaseClient?
 
     // MARK: - Published State
     @Published private(set) var currentUser: User?
@@ -48,23 +48,9 @@ class SupabaseClient: ObservableObject {
             let supabaseURL = URL(string: environmentConfig.supabaseURL)!
 
             // Initialize Supabase client
-            self.client = Supabase.Client(
+            self.client = SupabaseClient(
                 supabaseURL: supabaseURL,
-                supabaseKey: apiKey,
-                options: SupabaseClientOptions(
-                    db: DatabaseOptions(schema: "public"),
-                    auth: AuthOptions(
-                        autoRefreshToken: true,
-                        persistSession: true,
-                        detectSessionInURL: true,
-                        flowType: .pkce
-                    ),
-                    global: GlobalOptions(
-                        headers: [
-                            "X-Client-Info": "heartid-ios/\(DebugConfig.appVersion)"
-                        ]
-                    )
-                )
+                supabaseKey: apiKey
             )
 
             isInitialized = true
@@ -170,7 +156,7 @@ class SupabaseClient: ObservableObject {
                 lastName: nil,
                 profileImageUrl: nil,
                 deviceIds: [],
-                enrollmentStatus: .pending,
+                enrollmentStatus: .notStarted,
                 createdAt: Date()
             )
 
@@ -244,7 +230,7 @@ class SupabaseClient: ObservableObject {
                 lastName: nil,
                 profileImageUrl: response.avatar_url,
                 deviceIds: [],
-                enrollmentStatus: User.EnrollmentStatus(rawValue: response.enrollment_status) ?? .pending,
+                enrollmentStatus: User.EnrollmentStatus(rawValue: response.enrollment_status) ?? .notStarted,
                 createdAt: ISO8601DateFormatter().date(from: response.created_at) ?? Date()
             )
 
@@ -271,7 +257,7 @@ class SupabaseClient: ObservableObject {
         let insert = UserInsert(
             id: UUID(uuidString: user.id)!,
             email: user.email,
-            full_name: user.firstName.isEmpty ? nil : user.firstName,
+            full_name: (user.firstName?.isEmpty ?? true) ? nil : user.firstName,
             enrollment_status: user.enrollmentStatus.rawValue
         )
 
@@ -686,7 +672,7 @@ class SupabaseClient: ObservableObject {
                 .execute()
 
             // Update user enrollment status
-            try await updateUserProfile(enrollmentStatus: .revoked)
+            try await updateUserProfile(enrollmentStatus: .notStarted)
 
             print("✅ Biometric template deleted from cloud storage")
 

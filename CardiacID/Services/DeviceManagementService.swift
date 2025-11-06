@@ -14,7 +14,7 @@ class DeviceManagementService: NSObject, ObservableObject {
     // Services
     private let bluetoothService = BluetoothDoorLockService()
     private let nfcService = NFCService()
-    private let entraIDService: EntraIDService
+    private let entraIDService: MockEntraIDService
     private let passwordlessService = PasswordlessAuthService()
     private let encryptionService = EncryptionService.shared
     private let keychain = KeychainService.shared
@@ -31,7 +31,7 @@ class DeviceManagementService: NSObject, ObservableObject {
         commandResultSubject.eraseToAnyPublisher()
     }
     
-    init(entraIDService: EntraIDService) {
+    init(entraIDService: MockEntraIDService) {
         self.entraIDService = entraIDService
         super.init()
         setupServices()
@@ -40,6 +40,10 @@ class DeviceManagementService: NSObject, ObservableObject {
     
     // MARK: - Service Setup
     
+    // MARK: - Cancellables
+
+    private var cancellables = Set<AnyCancellable>()
+
     private func setupServices() {
         // Setup Bluetooth service
         bluetoothService.$discoveredLocks
@@ -47,13 +51,13 @@ class DeviceManagementService: NSObject, ObservableObject {
                 self?.updateAvailableDevices()
             }
             .store(in: &cancellables)
-        
+
         bluetoothService.$connectedLocks
             .sink { [weak self] locks in
                 self?.updateConnectedDevices()
             }
             .store(in: &cancellables)
-        
+
         // Setup NFC service
         nfcService.$lastScannedTag
             .sink { [weak self] tag in
@@ -62,10 +66,10 @@ class DeviceManagementService: NSObject, ObservableObject {
                 }
             }
             .store(in: &cancellables)
-        
+
         // Setup Entra ID service
         entraIDService.$isAuthenticated
-            .sink { [weak self] isAuthenticated in
+            .sink { [weak self] (isAuthenticated: Bool) in
                 if isAuthenticated {
                     self?.syncEnterpriseDevices()
                 }
@@ -323,16 +327,16 @@ class DeviceManagementService: NSObject, ObservableObject {
     private func authenticateWithDevice(_ device: ManagedDevice, using heartPattern: HeartPattern) async throws -> DeviceAuthResult {
         // Authenticate with device using heart pattern
         // This would involve sending the heart pattern to the device for verification
-        
+
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
+
         // Simulate authentication success
         let success = heartPattern.confidence > 0.7
-        
+
         return DeviceAuthResult(
             success: success,
             deviceId: device.id,
-            token: success ? encryptionService.generateRandomString(length: 32) : nil,
+            token: success ? try encryptionService.generateRandomString(length: 32) : nil,
             expiresAt: success ? Date().addingTimeInterval(300) : nil
         )
     }
@@ -438,14 +442,10 @@ class DeviceManagementService: NSObject, ObservableObject {
     }
     
     // MARK: - Error Handling
-    
+
     func clearError() {
         errorMessage = nil
     }
-    
-    // MARK: - Cancellables
-    
-    private var cancellables = Set<AnyCancellable>()
 }
 
 // MARK: - Supporting Types

@@ -11,6 +11,60 @@ import UIKit
 import MSAL
 import Combine
 
+// MARK: - EntraIDUser Model
+struct EntraIDUser: Codable, Identifiable {
+    let id: String
+    let displayName: String
+    let email: String
+    let jobTitle: String?
+    let department: String?
+    let permissions: [String]
+    let groups: [String]
+    let tenantId: String?
+    let userPrincipalName: String?
+    
+    init(
+        id: String,
+        displayName: String,
+        email: String,
+        jobTitle: String? = nil,
+        department: String? = nil,
+        permissions: [String] = [],
+        groups: [String] = [],
+        tenantId: String? = nil,
+        userPrincipalName: String? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.email = email
+        self.jobTitle = jobTitle
+        self.department = department
+        self.permissions = permissions
+        self.groups = groups
+        self.tenantId = tenantId
+        self.userPrincipalName = userPrincipalName
+    }
+    
+    // MARK: - Computed Properties
+    
+    var fullDisplayName: String {
+        if let title = jobTitle {
+            return "\(displayName) (\(title))"
+        }
+        return displayName
+    }
+    
+    var hasAdminPermissions: Bool {
+        return permissions.contains { $0.lowercased().contains("admin") }
+    }
+    
+    var initials: String {
+        let components = displayName.components(separatedBy: " ")
+        let initials = components.compactMap { $0.first }.map { String($0) }
+        return initials.joined()
+    }
+}
+
 /// Production EntraID authentication client using MSAL
 @MainActor
 class EntraIDAuthClient: NSObject, ObservableObject {
@@ -270,7 +324,9 @@ class EntraIDAuthClient: NSObject, ObservableObject {
             jobTitle: profile.jobTitle,
             department: profile.department,
             permissions: [], // Populated from groups/roles
-            groups: []
+            groups: [],
+            tenantId: nil, // Could be extracted from account if needed
+            userPrincipalName: profile.userPrincipalName
         )
     }
 
@@ -395,16 +451,6 @@ class MicrosoftGraphClient {
 }
 
 // MARK: - Supporting Types
-
-struct EntraIDUser {
-    let id: String
-    let displayName: String
-    let email: String
-    let jobTitle: String?
-    let department: String?
-    let permissions: [String]
-    let groups: [String]
-}
 
 struct GraphUserProfile: Codable {
     let id: String

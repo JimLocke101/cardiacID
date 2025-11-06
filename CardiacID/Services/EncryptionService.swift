@@ -144,6 +144,58 @@ class EncryptionService {
             return false
         }
     }
+
+    // MARK: - HeartPattern Encryption (for legacy compatibility)
+
+    /// Encrypt heart pattern data (delegates to generic encrypt)
+    func encryptHeartPattern(_ pattern: Data) throws -> Data {
+        return try encrypt(pattern)
+    }
+
+    /// Decrypt heart pattern data (delegates to generic decrypt)
+    func decryptHeartPattern(_ encryptedPattern: Data) throws -> Data {
+        return try decrypt(encryptedPattern)
+    }
+
+    // MARK: - Random Data Generation
+
+    /// Generate cryptographically secure random data
+    func generateRandomData(length: Int) throws -> Data {
+        var bytes = [UInt8](repeating: 0, count: length)
+        let status = SecRandomCopyBytes(kSecRandomDefault, length, &bytes)
+
+        guard status == errSecSuccess else {
+            throw EncryptionError.keyGenerationFailed
+        }
+
+        return Data(bytes)
+    }
+
+    /// Generate cryptographically secure random string
+    func generateRandomString(length: Int) throws -> String {
+        let data = try generateRandomData(length: length)
+        return data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+            .prefix(length)
+            .description
+    }
+
+    // MARK: - Hashing
+
+    /// Create SHA-256 hash of data
+    func hash(_ data: Data) -> Data {
+        return Data(SHA256.hash(data: data))
+    }
+
+    /// Create SHA-256 hash of string
+    func hash(_ string: String) -> String {
+        guard let data = string.data(using: .utf8) else {
+            return ""
+        }
+        return hash(data).base64EncodedString()
+    }
 }
 
 // MARK: - Errors
@@ -169,10 +221,4 @@ enum EncryptionError: Error, LocalizedError {
             return "Encryption key not found in Keychain"
         }
     }
-}
-
-// MARK: - CredentialKey Extension
-
-extension SecureCredentialManager.CredentialKey {
-    static let biometricEncryptionKey = SecureCredentialManager.CredentialKey(rawValue: "biometric_encryption_key")
 }

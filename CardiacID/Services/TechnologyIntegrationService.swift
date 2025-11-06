@@ -254,19 +254,18 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     /// Register a heart pattern for a specific device
     func registerHeartPattern(_ pattern: HeartPattern, for device: IntegratedDevice) async throws {
         logActivity(.patternRegistration, "Registering heart pattern for \(device.name)")
-        
+
         // Encrypt and store heart pattern
-        guard let encryptedPattern = encryptionService.encryptHeartPattern(pattern) else {
-            throw IntegrationError.encryptionFailed
-        }
-        
+        let patternData = try JSONEncoder().encode(pattern.heartRateData)
+        let encryptedPattern = try encryptionService.encryptHeartPattern(patternData)
+
         // Store in keychain with device-specific key
         let key = "heart_pattern_\(device.id.uuidString)"
         keychain.store(encryptedPattern, forKey: key)
-        
+
         // Cache the pattern
         heartPatternCache[device.id] = pattern
-        
+
         logActivity(.patternRegistered, "Heart pattern registered for \(device.name)")
     }
     
@@ -407,19 +406,35 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     private func authenticateWithDevice(_ device: IntegratedDevice, using heartPattern: HeartPattern) async throws -> DeviceAuthResult {
         // Get stored heart pattern for device
         let key = "heart_pattern_\(device.id.uuidString)"
-        guard let encryptedPattern = keychain.retrieveData(forKey: key),
-              let storedPattern = encryptionService.decryptHeartPattern(encryptedPattern) else {
+        guard let encryptedPattern = keychain.retrieveData(forKey: key) else {
             throw IntegrationError.patternNotFound
         }
-        
+
+        let storedPatternArray = try encryptionService.decryptHeartPattern(encryptedPattern)
+
+        // Convert Data back to array of doubles for comparison
+        let dataCount = storedPatternArray.count / MemoryLayout<Double>.size
+        let doubleArray = storedPatternArray.withUnsafeBytes { buffer in
+            Array(buffer.bindMemory(to: Double.self)).prefix(dataCount)
+        }
+        let storedHeartRateData = Array(doubleArray)
+
         // Compare patterns (simplified comparison)
-        let similarity = compareHeartPatterns(storedPattern, heartPattern)
+        let similarity = compareHeartPatterns(
+            HeartPattern(
+                heartRateData: storedHeartRateData, 
+                duration: 10.0, // Default duration
+                encryptedIdentifier: "stored_pattern_\(device.id)", 
+                confidence: 0.8
+            ), 
+            heartPattern
+        )
         let success = similarity > 0.8 // 80% similarity threshold
-        
+
         return DeviceAuthResult(
             success: success,
             deviceId: device.id,
-            token: success ? encryptionService.generateRandomString(length: 32) : nil,
+            token: success ? try encryptionService.generateRandomString(length: 32) : nil,
             expiresAt: success ? Date().addingTimeInterval(300) : nil
         )
     }

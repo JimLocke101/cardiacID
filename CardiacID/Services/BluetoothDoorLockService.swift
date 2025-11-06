@@ -197,21 +197,19 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
     
     private func authenticateHeartPattern(_ pattern: HeartPattern, for lock: BluetoothDoorLock) async throws -> DoorLockAuthResult {
         // Encrypt heart pattern
-        guard let encryptedPattern = encryptionService.encryptHeartPattern(pattern) else {
-            throw BluetoothDoorLockError.encryptionFailed
-        }
-        
+        let encryptedPattern = try encryptionService.encryptHeartPattern(pattern.heartRateData)
+
         // Create authentication request
         let authRequest = DoorLockAuthRequest(
             lockId: lock.id,
             heartPattern: encryptedPattern,
             timestamp: Date(),
-            nonce: encryptionService.generateRandomData(length: 16) ?? Data()
+            nonce: try encryptionService.generateRandomData(length: 16)
         )
-        
+
         // Send authentication request
         let authResponse = try await sendAuthenticationRequest(authRequest, to: lock)
-        
+
         return authResponse
     }
     
@@ -227,7 +225,7 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
         
         return DoorLockAuthResult(
             success: success,
-            token: success ? encryptionService.generateRandomString(length: 32) ?? "" : nil,
+            token: success ? try encryptionService.generateRandomString(length: 32) : nil,
             expiresAt: success ? Date().addingTimeInterval(300) : nil, // 5 minutes
             permissions: success ? [.unlock, .lock, .status] : []
         )

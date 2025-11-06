@@ -204,15 +204,13 @@ class PasswordlessAuthService: NSObject, ObservableObject {
         guard let pattern = heartPattern else {
             throw PasswordlessAuthError.invalidHeartPattern
         }
-        
+
         // Encrypt and store heart pattern
-        guard let encryptedPattern = encryptionService.encryptHeartPattern(pattern) else {
-            throw PasswordlessAuthError.encryptionFailed
-        }
-        
+        let encryptedPattern = try encryptionService.encryptHeartPattern(pattern.heartRateData)
+
         keychain.store(encryptedPattern, forKey: "heart_id_pattern")
         keychain.store("enrolled", forKey: "heart_id_enrollment")
-        
+
         return PasswordlessEnrollmentResult(
             success: true,
             method: PasswordlessMethod(type: .heartID, name: "Heart ID", isAvailable: true, isEnrolled: true),
@@ -347,17 +345,25 @@ class PasswordlessAuthService: NSObject, ObservableObject {
         guard let pattern = heartPattern else {
             throw PasswordlessAuthError.invalidHeartPattern
         }
-        
+
         // Check if Heart ID is enrolled
-        guard let storedPatternData = keychain.retrieveData(forKey: "heart_id_pattern"),
-              let storedPattern = encryptionService.decryptHeartPattern(storedPatternData) else {
+        guard let storedPatternData = keychain.retrieveData(forKey: "heart_id_pattern") else {
             throw PasswordlessAuthError.notEnrolled
         }
-        
+
+        let storedPatternArray = try encryptionService.decryptHeartPattern(storedPatternData)
+
+        // Convert Data back to array of doubles for comparison
+        let dataCount = storedPatternArray.count / MemoryLayout<Double>.size
+        let doubleArray = storedPatternArray.withUnsafeBytes { buffer in
+            Array(buffer.bindMemory(to: Double.self)).prefix(dataCount)
+        }
+        let storedHeartRateData = Array(doubleArray)
+
         // Compare patterns (simplified comparison)
-        let similarity = compareHeartPatterns(storedPattern, pattern)
+        let similarity = compareHeartPatterns(HeartPattern(heartRateData: storedHeartRateData, confidence: 0.8), pattern)
         let success = similarity > 0.8 // 80% similarity threshold
-        
+
         return PasswordlessAuthResult(
             success: success,
             method: PasswordlessMethod(type: .heartID, name: "Heart ID", isAvailable: true, isEnrolled: true),
@@ -379,10 +385,10 @@ class PasswordlessAuthService: NSObject, ObservableObject {
     private func generateFIDO2KeyPair() throws -> FIDO2KeyPair {
         // In a real implementation, this would generate actual FIDO2 key pairs
         // For now, we'll generate a simple key pair
-        
-        let privateKey = encryptionService.generateRandomData(length: 32) ?? Data()
-        let publicKey = encryptionService.generateRandomData(length: 64) ?? Data()
-        
+
+        let privateKey = try encryptionService.generateRandomData(length: 32)
+        let publicKey = try encryptionService.generateRandomData(length: 64)
+
         return FIDO2KeyPair(privateKey: privateKey, publicKey: publicKey)
     }
     

@@ -108,10 +108,11 @@ class ServiceIntegrationTest: ObservableObject {
         
         // Test data encryption/decryption
         let testData = "Hello, World!".data(using: .utf8)!
-        if let encrypted = service.encrypt(data: testData),
-           let decrypted = service.decrypt(data: encrypted) {
+        do {
+            let encrypted = try service.encrypt(testData)
+            let decrypted = try service.decrypt(encrypted)
             testResults["EncryptionService Data Encryption"] = decrypted == testData
-        } else {
+        } catch {
             testResults["EncryptionService Data Encryption"] = false
             errorMessages["EncryptionService Data Encryption"] = "Failed to encrypt/decrypt data"
         }
@@ -124,24 +125,30 @@ class ServiceIntegrationTest: ObservableObject {
             qualityScore: 0.9,
             confidence: 0.85
         )
-        
-        if let encrypted = service.encryptHeartPattern(heartPattern),
-           let decrypted = service.decryptHeartPattern(encrypted) {
-            testResults["EncryptionService Heart Pattern"] = decrypted.heartRateData == heartPattern.heartRateData
-        } else {
+
+        do {
+            let encoder = JSONEncoder()
+            let patternData = try encoder.encode(heartPattern)
+            let encrypted = try service.encryptHeartPattern(patternData)
+            let decrypted = try service.decryptHeartPattern(encrypted)
+            let decoder = JSONDecoder()
+            let decryptedPattern = try decoder.decode(HeartPattern.self, from: decrypted)
+            testResults["EncryptionService Heart Pattern"] = decryptedPattern.heartRateData == heartPattern.heartRateData
+        } catch {
             testResults["EncryptionService Heart Pattern"] = false
             errorMessages["EncryptionService Heart Pattern"] = "Failed to encrypt/decrypt heart pattern"
         }
         
         // Test hash generation
         let testString = "test string"
-        let hash = service.hash(string: testString)
+        let hash = service.hash(testString)
         testResults["EncryptionService Hash Generation"] = !hash.isEmpty
-        
+
         // Test random data generation
-        if let randomData = service.generateRandomData(length: 32) {
+        do {
+            let randomData = try service.generateRandomData(length: 32)
             testResults["EncryptionService Random Data"] = randomData.count == 32
-        } else {
+        } catch {
             testResults["EncryptionService Random Data"] = false
             errorMessages["EncryptionService Random Data"] = "Failed to generate random data"
         }

@@ -43,14 +43,14 @@ class AuthViewModel: ObservableObject {
         
         supabaseService.signIn(email: email, password: password)
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] completion in
+            .sink(receiveCompletion: { [weak self] (completion: Subscribers.Completion<APIError>) in
                 self?.isLoading = false
-                
+
                 if case .failure(let error) = completion {
                     debugLog.error("Sign in failed for user: \(email)", error: error)
                     self?.authError = error.localizedDescription
                 }
-            }, receiveValue: { _ in 
+            }, receiveValue: { _ in
                 debugLog.auth("Sign in successful for user: \(email)")
                 // The currentUser and isAuthenticated will be updated via the publishers
             })
@@ -61,11 +61,11 @@ class AuthViewModel: ObservableObject {
     func signOut() {
         supabaseService.signOut()
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] completion in
+            .sink(receiveCompletion: { [weak self] (completion: Subscribers.Completion<APIError>) in
                 if case .failure(let error) = completion {
                     self?.authError = error.localizedDescription
                 }
-            }, receiveValue: { _ in 
+            }, receiveValue: { _ in
                 // The currentUser and isAuthenticated will be updated via the publishers
             })
             .store(in: &cancellables)
@@ -77,19 +77,19 @@ class AuthViewModel: ObservableObject {
             authError = "Not signed in"
             return
         }
-        
+
         isLoading = true
         authError = nil
-        
-        supabaseService.updateUserProfile(name: name, profileImage: nil)
+
+        supabaseService.updateUserProfile(name: name, profileImage: nil as UIImage?)
             .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { [weak self] completion in
+            .sink(receiveCompletion: { [weak self] (completion: Subscribers.Completion<APIError>) in
                 self?.isLoading = false
-                
+
                 if case .failure(let error) = completion {
                     self?.authError = error.localizedDescription
                 }
-            }, receiveValue: { _ in 
+            }, receiveValue: { _ in
                 // The currentUser will be updated via the publisher
             })
             .store(in: &cancellables)
