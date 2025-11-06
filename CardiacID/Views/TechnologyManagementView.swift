@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftUI
 import Combine
 import CoreBluetooth
 import CoreNFC
@@ -6,11 +7,15 @@ import CoreNFC
 /// Comprehensive technology management screen for EntraID, Active Directory, NFC, Bluetooth, and door locks
 struct TechnologyManagementView: View {
     // Services (credentials now loaded securely from Keychain)
-    @StateObject private var entraIDService = EntraIDService()
+    @StateObject private var entraIDService = MockEntraIDService()
     @StateObject private var bluetoothService = BluetoothDoorLockService()
     @StateObject private var nfcService = NFCService()
-    @StateObject private var deviceManagementService = DeviceManagementService(entraIDService: EntraIDService())
     @StateObject private var passwordlessService = PasswordlessAuthService()
+    
+    // Computed property for device management service 
+    private var deviceManagementService: DeviceManagementService {
+        DeviceManagementService(entraIDService: entraIDService)
+    }
     
     // State
     @State private var selectedTab: TechnologyTab = .entraID
@@ -264,7 +269,7 @@ enum TechnologyTab: String, CaseIterable {
 struct EntraIDManagementView: View {
     @ObservedObject var service: EntraIDService
     private let colors = HeartIDColors()
-    
+
     var body: some View {
         VStack(spacing: 20) {
             // Connection Status
@@ -272,7 +277,7 @@ struct EntraIDManagementView: View {
                 title: "EntraID Connection",
                 isConnected: service.isAuthenticated,
                 statusText: service.isAuthenticated ? "Connected" : "Not Connected",
-                userInfo: service.currentUser?.displayName
+                userInfo: service.currentUser.map { $0.displayName }
             )
             
             // Authentication Actions
@@ -302,7 +307,10 @@ struct EntraIDManagementView: View {
             
             // Enterprise Features
             if service.isAuthenticated {
-                EnterpriseFeaturesCard(service: service)
+                EnterpriseFeaturesCard(
+                    service: service,
+                    showingApplicationsList: $showingApplicationsList
+                )
             }
         }
     }
@@ -624,13 +632,14 @@ struct InfoRow: View {
 
 struct EnterpriseFeaturesCard: View {
     @ObservedObject var service: EntraIDService
+    @Binding var showingApplicationsList: Bool
     private let colors = HeartIDColors()
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Enterprise Features")
                 .font(.headline)
-            
+
             VStack(spacing: 8) {
                 FeatureButton(
                     title: "View Groups",
@@ -639,7 +648,7 @@ struct EnterpriseFeaturesCard: View {
                         // Load and display groups
                     }
                 )
-                
+
                 FeatureButton(
                     title: "View Applications",
                     icon: "app.fill",
@@ -647,7 +656,7 @@ struct EnterpriseFeaturesCard: View {
                         showingApplicationsList = true
                     }
                 )
-                
+
                 FeatureButton(
                     title: "Security Policies",
                     icon: "shield.fill",

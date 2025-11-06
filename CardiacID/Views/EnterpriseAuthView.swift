@@ -1,17 +1,14 @@
 import SwiftUI
+import SwiftUI
 import Combine
 
 /// View for managing enterprise authentication (Entra ID, Active Directory)
 struct EnterpriseAuthView: View {
-    @StateObject private var entraIDService: EntraIDService
+    @ObservedObject var entraIDService: EntraIDService
     @StateObject private var watchConnectivity = WatchConnectivityService.shared
     @State private var isAuthenticating = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
-    
-    init(entraIDService: EntraIDService) {
-        self._entraIDService = StateObject(wrappedValue: entraIDService)
-    }
     
     var body: some View {
         NavigationView {
@@ -21,28 +18,28 @@ struct EnterpriseAuthView: View {
                     Image(systemName: "building.2.crop.circle")
                         .font(.system(size: 60))
                         .foregroundColor(.blue)
-                    
+
                     Text("Enterprise Authentication")
                         .font(.title2)
                         .fontWeight(.bold)
-                    
+
                     Text("Connect to your organization's identity system")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top)
-                
+
                 // Authentication Status
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: entraIDService.isAuthenticated ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundColor(entraIDService.isAuthenticated ? .green : .red)
-                        
+
                         Text(entraIDService.isAuthenticated ? "Connected to Enterprise" : "Not Connected")
                             .fontWeight(.medium)
                     }
-                    
+
                     if let user = entraIDService.currentUser {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Welcome, \(user.displayName)")
@@ -215,11 +212,7 @@ struct EnterpriseFeatureCard: View {
 struct EnterpriseAuthView_Previews: PreviewProvider {
     static var previews: some View {
         EnterpriseAuthView(
-            entraIDService: EntraIDService(
-                tenantId: "test-tenant",
-                clientId: "test-client",
-                redirectUri: "test://redirect"
-            )
+            entraIDService: EntraIDService()
         )
     }
 }

@@ -16,8 +16,8 @@ HEARTID_ENABLE_NETWORK_LOGGING = YES
 HEARTID_USE_MOCK_DATA = NO
 
 // API Endpoints (Development)
-HEARTID_SUPABASE_URL = https:/$()/bzxzugwguozsymqezvig.supabase.co
-HEARTID_SUPABASE_PROJECT_ID = bzxzugwguozsymqezvig
+HEARTID_SUPABASE_URL = https:/$()/xytycgdlafncjszhgems.supabase.co
+HEARTID_SUPABASE_PROJECT_ID = xytycgdlafncjszhgems
 
 // Microsoft Entra ID (Development tenant)
 // NOTE: Actual credentials stored in Keychain, these are just identifiers
