@@ -32,6 +32,9 @@ class AuthViewModel: ObservableObject {
     func signIn(email: String, password: String) {
         debugLog.auth("Attempting sign in for email: \(email)")
         
+        // Check for demo-mode credentials
+        DemoModeManager.shared.evaluateCredentials(email: email, password: password)
+        
         guard !email.isEmpty, !password.isEmpty else {
             debugLog.auth("Sign in failed - empty credentials")
             authError = "Email and password cannot be empty"
@@ -40,6 +43,17 @@ class AuthViewModel: ObservableObject {
         
         isLoading = true
         authError = nil
+        
+        if DemoModeManager.shared.isDemoEnabled {
+            // In demo mode, bypass real Supabase and set a mock user
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self = self else { return }
+                self.isLoading = false
+                self.isAuthenticated = true
+                self.currentUser = User(id: UUID().uuidString, email: email, name: "John Doe (Demo)")
+            }
+            return
+        }
         
         supabaseService.signIn(email: email, password: password)
             .receive(on: DispatchQueue.main)
@@ -53,6 +67,35 @@ class AuthViewModel: ObservableObject {
             }, receiveValue: { _ in
                 debugLog.auth("Sign in successful for user: \(email)")
                 // The currentUser and isAuthenticated will be updated via the publishers
+            })
+            .store(in: &cancellables)
+    }
+    
+    /// Register a new user and create their profile
+    func register(name: String, email: String, password: String) {
+        debugLog.auth("Attempting registration for email: \(email)")
+
+        guard !name.isEmpty, !email.isEmpty, !password.isEmpty else {
+            authError = "Name, email and password cannot be empty"
+            return
+        }
+
+        isLoading = true
+        authError = nil
+
+        // Evaluate demo-mode against provided credentials
+        DemoModeManager.shared.evaluateCredentials(email: email, password: password)
+
+        SupabaseService.shared.register(email: email, password: password, name: name)
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { [weak self] completion in
+                self?.isLoading = false
+                if case .failure(let error) = completion {
+                    self?.authError = error.localizedDescription
+                }
+            }, receiveValue: { [weak self] user in
+                self?.currentUser = user
+                self?.isAuthenticated = true
             })
             .store(in: &cancellables)
     }

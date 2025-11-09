@@ -1,3 +1,4 @@
+#if DEMO_MODE
 import Foundation
 import Combine
 
@@ -87,3 +88,4 @@ class MockEntraIDService: EntraIDService, ObservableObject {
         return isAuthenticated
     }
 }
+#endif

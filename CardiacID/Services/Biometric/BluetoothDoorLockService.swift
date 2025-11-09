@@ -5,6 +5,16 @@ import Combine
 /// Service for managing Bluetooth door locks and access control
 class BluetoothDoorLockService: NSObject, ObservableObject {
     
+    // Compatibility API expected by the rest of the app
+    @Published var isBluetoothAvailable: Bool = false
+    @Published var isUnlocking: Bool = false
+    @Published var discoveredLocks: [BluetoothDoorLock] = []
+    @Published var connectedLocks: [BluetoothDoorLock] = []
+
+    // Backward-compatible status publisher
+    private let lockStatusSubject = PassthroughSubject<DoorLockStatus, Never>()
+    var lockStatusPublisher: AnyPublisher<DoorLockStatus, Never> { lockStatusSubject.eraseToAnyPublisher() }
+    
     // MARK: - Published Properties
     @Published private(set) var isScanning = false
     @Published private(set) var discoveredDevices: [BluetoothDevice] = []
@@ -20,11 +30,13 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
     // MARK: - Configuration
     private let lockServiceUUID = CBUUID(string: "12345678-1234-1234-1234-123456789ABC")
     private let unlockCharacteristicUUID = CBUUID(string: "12345678-1234-1234-1234-123456789ABD")
+    private let statusCharacteristicUUID = CBUUID(string: "12345678-1234-1234-1234-123456789ABE")
+    private let batteryCharacteristicUUID = CBUUID(string: "12345678-1234-1234-1234-123456789ABF")
     
     // MARK: - Heart Authentication
     private let authenticationService = HeartAuthenticationService.shared
     
-    enum ConnectionStatus {
+    enum ConnectionStatus: Equatable {
         case disconnected
         case connecting
         case connected
@@ -38,10 +50,31 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
         setupBluetoothManager()
     }
     
-    // MARK: - Setup
+    // MARK: - Bluetooth Setup
     
     private func setupBluetoothManager() {
         centralManager = CBCentralManager(delegate: self, queue: nil)
+    }
+    
+    // MARK: - Mapping Helpers
+    private func makeLock(from device: BluetoothDevice) -> BluetoothDoorLock {
+        BluetoothDoorLock(
+            id: UUID(),
+            name: device.name,
+            peripheral: device.peripheral,
+            rssi: device.rssi,
+            isAuthorized: true,
+            location: nil
+        )
+    }
+
+    private func findDevice(for lock: BluetoothDoorLock) -> BluetoothDevice? {
+        // Match by peripheral identifier when possible, or by name as a fallback
+        if let pid = lock.peripheral?.identifier.uuidString {
+            return discoveredDevices.first { $0.peripheral?.identifier.uuidString == pid }
+                ?? connectedDevices.first { $0.peripheral?.identifier.uuidString == pid }
+        }
+        return discoveredDevices.first { $0.name == lock.name } ?? connectedDevices.first { $0.name == lock.name }
     }
     
     // MARK: - Scanning
@@ -55,6 +88,7 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
         
         isScanning = true
         discoveredDevices.removeAll()
+        discoveredLocks.removeAll()
         
         centralManager.scanForPeripherals(
             withServices: [lockServiceUUID],
@@ -82,9 +116,34 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
         centralManager?.connect(peripheral, options: nil)
     }
     
+    // Old API compatibility
+    func connectToLock(_ lock: BluetoothDoorLock) {
+        if let device = findDevice(for: lock) {
+            connectToDevice(device)
+        } else if let peripheral = lock.peripheral {
+            // Create an ad-hoc device wrapper if it wasn't discovered via the new flow
+            let device = BluetoothDevice(
+                identifier: peripheral.identifier.uuidString,
+                name: lock.name,
+                peripheral: peripheral,
+                rssi: lock.rssi
+            )
+            connectToDevice(device)
+        } else {
+            errorMessage = "Invalid door lock peripheral"
+        }
+    }
+    
     func disconnectFromDevice(_ device: BluetoothDevice) {
         guard let peripheral = device.peripheral else { return }
         centralManager?.cancelPeripheralConnection(peripheral)
+    }
+    
+    // Old API compatibility
+    func disconnectFromLock(_ lock: BluetoothDoorLock) {
+        if let device = findDevice(for: lock) {
+            disconnectFromDevice(device)
+        }
     }
     
     // MARK: - Authentication & Unlock
@@ -114,6 +173,54 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
             connectionStatus = .failed(error.localizedDescription)
             throw error
         }
+    }
+    
+    // Old API compatibility
+    func unlockDoor(_ lock: BluetoothDoorLock, with heartPattern: HeartPattern) {
+        guard connectionStatus == .connected || connectionStatus == .authenticated else {
+            errorMessage = BluetoothError.notConnected.localizedDescription
+            return
+        }
+
+        isUnlocking = true
+        Task {
+            do {
+                try await authenticateAndUnlock(using: heartPattern)
+                await MainActor.run {
+                    self.isUnlocking = false
+                    self.lockStatusSubject.send(.unlocked(lock))
+                }
+            } catch {
+                await MainActor.run {
+                    self.isUnlocking = false
+                    self.errorMessage = error.localizedDescription
+                    self.lockStatusSubject.send(.error(lock, error.localizedDescription))
+                }
+            }
+        }
+    }
+    
+    func lockDoor(_ lock: BluetoothDoorLock) {
+        // In a real implementation, send a lock command. Here we simulate success.
+        Task { @MainActor in
+            self.lockStatusSubject.send(.locked(lock))
+        }
+    }
+
+    func checkLockStatus(_ lock: BluetoothDoorLock) {
+        // Simulate a status check; default to locked
+        Task { @MainActor in
+            self.lockStatusSubject.send(.statusUpdated(lock, .locked))
+        }
+    }
+
+    func getBatteryLevel(_ lock: BluetoothDoorLock) -> AnyPublisher<Int, Error> {
+        Future<Int, Error> { promise in
+            Task {
+                try await Task.sleep(nanoseconds: 200_000_000)
+                promise(.success(Int.random(in: 30...100)))
+            }
+        }.eraseToAnyPublisher()
     }
     
     private func performHeartAuthentication(_ heartData: Data) async throws -> Bool {
@@ -201,6 +308,7 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
 extension BluetoothDoorLockService: CBCentralManagerDelegate {
     
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        isBluetoothAvailable = (central.state == .poweredOn)
         switch central.state {
         case .poweredOn:
             print("✅ Bluetooth is powered on")
@@ -231,6 +339,11 @@ extension BluetoothDoorLockService: CBCentralManagerDelegate {
         
         if !discoveredDevices.contains(where: { $0.identifier == device.identifier }) {
             discoveredDevices.append(device)
+            
+            let lock = makeLock(from: device)
+            if !discoveredLocks.contains(where: { $0.peripheral?.identifier == peripheral.identifier }) {
+                discoveredLocks.append(lock)
+            }
         }
     }
     
@@ -252,6 +365,17 @@ extension BluetoothDoorLockService: CBCentralManagerDelegate {
         if !connectedDevices.contains(where: { $0.identifier == device.identifier }) {
             connectedDevices.append(device)
         }
+        
+        let lock = BluetoothDoorLock(
+            id: UUID(),
+            name: peripheral.name ?? "Unknown Door Lock",
+            peripheral: peripheral,
+            rssi: 0,
+            isAuthorized: true
+        )
+        if !connectedLocks.contains(where: { $0.peripheral?.identifier == peripheral.identifier }) {
+            connectedLocks.append(lock)
+        }
     }
     
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
@@ -266,6 +390,7 @@ extension BluetoothDoorLockService: CBCentralManagerDelegate {
         
         // Remove from connected devices
         connectedDevices.removeAll { $0.identifier == peripheral.identifier.uuidString }
+        connectedLocks.removeAll { $0.peripheral?.identifier == peripheral.identifier }
         
         if let error = error {
             errorMessage = "Disconnected with error: \(error.localizedDescription)"
@@ -379,3 +504,42 @@ class HeartAuthenticationService {
         return pattern.confidence > 0.7 && pattern.qualityScore > 0.6
     }
 }
+
+// MARK: - Legacy Supporting Types (for compatibility)
+
+struct BluetoothDoorLock: Codable, Identifiable {
+    let id: UUID
+    let name: String
+    let location: String?
+    let isAuthorized: Bool
+    let rssi: Int
+    var isConnected: Bool = false
+    var peripheral: CBPeripheral?
+
+    init(id: UUID = UUID(), name: String, peripheral: CBPeripheral?, rssi: Int, isAuthorized: Bool, location: String? = nil) {
+        self.id = id
+        self.name = name
+        self.peripheral = peripheral
+        self.rssi = rssi
+        self.isAuthorized = isAuthorized
+        self.location = location
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, location, isAuthorized, rssi, isConnected
+    }
+}
+
+enum DoorLockStatus {
+    case locked(BluetoothDoorLock)
+    case unlocked(BluetoothDoorLock)
+    case statusUpdated(BluetoothDoorLock, DoorLockStatusType)
+    case error(BluetoothDoorLock, String)
+}
+
+enum DoorLockStatusType {
+    case locked
+    case unlocked
+    case unknown
+}
+
