@@ -1,7 +1,6 @@
 // SupabaseService.swift
 import Foundation
 import Combine
-import UIKit
 
 final class SupabaseService: ObservableObject {
     static let shared = SupabaseService()
@@ -10,7 +9,7 @@ final class SupabaseService: ObservableObject {
     @Published private(set) var isAuthenticated: Bool = false
     @Published private(set) var currentUser: User?
 
-    private let client = SupabaseClient.shared
+    private let client = AppSupabaseClientLocal.shared
 
     func signIn(email: String, password: String) -> AnyPublisher<Void, APIError> {
         // If demo-mode is enabled, we should not reach here (AuthViewModel short-circuits)

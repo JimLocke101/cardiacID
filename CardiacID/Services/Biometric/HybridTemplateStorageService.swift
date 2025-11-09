@@ -13,7 +13,7 @@ import Foundation
 /// Secondary storage: Supabase cloud (backup, multi-device sync)
 class HybridTemplateStorageService {
     private let localStorage = TemplateStorageService()
-    private let cloudStorage = SupabaseClient.shared
+    private let cloudStorage = AppSupabaseClientLocal.shared
 
     // MARK: - Storage Strategy
 
@@ -104,3 +104,4 @@ class HybridTemplateStorageService {
         print("✅ Cloud template manually synced to local")
     }
 }
+

@@ -1,16 +1,16 @@
-// SupabaseClient.swift (stub for compilation and future SDK integration)
+// AppSupabaseClient.swift (renamed stub to avoid duplicate filename conflicts)
 import Foundation
 import Combine
+import UIKit
 
-final class SupabaseClient {
-    static let shared = SupabaseClient()
+final class AppSupabaseClient {
+    static let shared = AppSupabaseClient()
     private init() {}
 
     // Authentication state
     @Published private(set) var isAuthenticated: Bool = false
 
     func signIn(email: String, password: String) -> AnyPublisher<Void, APIError> {
-        // Placeholder sign-in that succeeds after delay; replace with real SDK
         return Future<Void, APIError> { promise in
             DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
                 self.isAuthenticated = true
@@ -23,6 +23,16 @@ final class SupabaseClient {
         return Future<Void, APIError> { promise in
             self.isAuthenticated = false
             promise(.success(()))
+        }.eraseToAnyPublisher()
+    }
+
+    func signUp(email: String, password: String, name: String) -> AnyPublisher<User, APIError> {
+        return Future<User, APIError> { promise in
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.8) {
+                self.isAuthenticated = true
+                let user = User(id: UUID().uuidString, email: email, name: name)
+                promise(.success(user))
+            }
         }.eraseToAnyPublisher()
     }
 
@@ -39,18 +49,8 @@ final class SupabaseClient {
     func deleteBiometricTemplate() async throws {
         // Replace with real deletion
     }
-}
 
-enum APIError: Error, LocalizedError {
-    case authenticationError(String)
-    case networkError(String)
-    case unknown
-
-    var errorDescription: String? {
-        switch self {
-        case .authenticationError(let msg): return msg
-        case .networkError(let msg): return msg
-        case .unknown: return "Unknown error"
-        }
+    func updateUserProfile(name: String, profileImage: Data?) -> AnyPublisher<Void, APIError> {
+        return Just(()).setFailureType(to: APIError.self).eraseToAnyPublisher()
     }
 }

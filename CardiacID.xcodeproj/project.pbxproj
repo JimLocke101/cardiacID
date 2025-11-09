@@ -19,17 +19,21 @@
 		FB525D502EBD241F0058DF45 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D4F2EBD241F0058DF45 /* Supabase */; };
 		FB525D522EBD24310058DF45 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D512EBD24310058DF45 /* Atomics */; };
 		FB525D592EBD27570058DF45 /* SecurityUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D542EBD272E0058DF45 /* SecurityUI.framework */; };
-		FB525D5A2EBD27570058DF45 /* SecurityUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D542EBD272E0058DF45 /* SecurityUI.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB525D5A2EBD27570058DF45 /* SecurityUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D542EBD272E0058DF45 /* SecurityUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FB525D5C2EBD275A0058DF45 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; };
-		FB525D5D2EBD275A0058DF45 /* SwiftUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB525D5D2EBD275A0058DF45 /* SwiftUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FB525D5E2EBD275C0058DF45 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; };
-		FB525D5F2EBD275C0058DF45 /* UIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB525D5F2EBD275C0058DF45 /* UIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FB525D602EBD28F10058DF45 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; };
 		FB525D622EBD2A790058DF45 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D612EBD2A790058DF45 /* Auth */; };
 		FB525D642EBD2A790058DF45 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D632EBD2A790058DF45 /* Functions */; };
 		FB525D662EBD2A790058DF45 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D652EBD2A790058DF45 /* PostgREST */; };
 		FB525D682EBD2A790058DF45 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D672EBD2A790058DF45 /* Realtime */; };
 		FB525D6A2EBD2A790058DF45 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D692EBD2A790058DF45 /* Storage */; };
+		FB870B3B2EC063DA00FD7DAA /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3A2EC063DA00FD7DAA /* Atomics */; };
+		FB870B3D2EC063F200FD7DAA /* Algorithms in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3C2EC063F200FD7DAA /* Algorithms */; };
+		FB870B3F2EC0640D00FD7DAA /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3E2EC0640D00FD7DAA /* Auth */; };
+		FB870B412EC0641E00FD7DAA /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B402EC0641E00FD7DAA /* PostgREST */; };
 		FBF0C0BD2E70DF25005C425B /* CardiacID Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = FBF0C0BC2E70DF25005C425B /* CardiacID Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -149,12 +153,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				FB525D502EBD241F0058DF45 /* Supabase in Frameworks */,
+				FB870B3D2EC063F200FD7DAA /* Algorithms in Frameworks */,
+				FB870B412EC0641E00FD7DAA /* PostgREST in Frameworks */,
+				FB870B3F2EC0640D00FD7DAA /* Auth in Frameworks */,
 				FB525D4E2EBD240E0058DF45 /* Algorithms in Frameworks */,
 				FB525B152EBC74F30058DF45 /* (null) in Frameworks */,
 				FB525D4C2EBD24000058DF45 /* MSAL in Frameworks */,
 				FB525B142EBC74F30058DF45 /* (null) in Frameworks */,
 				FB525D5E2EBD275C0058DF45 /* UIKit.framework in Frameworks */,
 				FB525D4A2EBD23DC0058DF45 /* Storage in Frameworks */,
+				FB870B3B2EC063DA00FD7DAA /* Atomics in Frameworks */,
 				FB525D442EBD23DC0058DF45 /* Functions in Frameworks */,
 				FB525D482EBD23DC0058DF45 /* Realtime in Frameworks */,
 				FB525D522EBD24310058DF45 /* Atomics in Frameworks */,
@@ -271,6 +279,10 @@
 			packageProductDependencies = (
 				FB525D4F2EBD241F0058DF45 /* Supabase */,
 				FB525D4B2EBD24000058DF45 /* MSAL */,
+				FB870B3A2EC063DA00FD7DAA /* Atomics */,
+				FB870B3C2EC063F200FD7DAA /* Algorithms */,
+				FB870B3E2EC0640D00FD7DAA /* Auth */,
+				FB870B402EC0641E00FD7DAA /* PostgREST */,
 			);
 			productName = CardiacID;
 			productReference = FBF0C0992E70DF24005C425B /* CardiacID.app */;
@@ -1149,6 +1161,26 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Storage;
+		};
+		FB870B3A2EC063DA00FD7DAA /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB525D352EBD0FD80058DF45 /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
+		};
+		FB870B3C2EC063F200FD7DAA /* Algorithms */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB6A13F92E7A497100F3F65A /* XCRemoteSwiftPackageReference "swift-algorithms" */;
+			productName = Algorithms;
+		};
+		FB870B3E2EC0640D00FD7DAA /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		FB870B402EC0641E00FD7DAA /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
