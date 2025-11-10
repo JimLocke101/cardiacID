@@ -1,6 +1,8 @@
 import Foundation
 
-struct User: Identifiable, Codable, Equatable {
+/// CardiacID App User Model
+/// Note: Renamed from `User` to `AppUser` to avoid conflicts with Supabase Auth.User
+struct AppUser: Identifiable, Codable, Equatable {
     let id: String
     let email: String
     var firstName: String?
@@ -59,3 +61,8 @@ struct User: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
     }
 }
+
+// MARK: - Backward Compatibility
+// Typealias to support code that still uses `User` for CardiacID user model
+// Use this in contexts where you mean CardiacID's AppUser, not Supabase's Auth.User
+typealias User = AppUser

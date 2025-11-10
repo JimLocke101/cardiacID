@@ -5,6 +5,6 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:AppSupabaseClientLocal.swift">
+      location = "group:../BUILD_READY_STATUS.md">
    </FileRef>
 </Workspace>
