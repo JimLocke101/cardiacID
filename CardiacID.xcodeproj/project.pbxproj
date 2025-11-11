@@ -30,6 +30,7 @@
 		FB525D662EBD2A790058DF45 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D652EBD2A790058DF45 /* PostgREST */; };
 		FB525D682EBD2A790058DF45 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D672EBD2A790058DF45 /* Realtime */; };
 		FB525D6A2EBD2A790058DF45 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D692EBD2A790058DF45 /* Storage */; };
+		FB59A1CF2EC2DE9E00148604 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; };
 		FB870B3B2EC063DA00FD7DAA /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3A2EC063DA00FD7DAA /* Atomics */; };
 		FB870B3D2EC063F200FD7DAA /* Algorithms in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3C2EC063F200FD7DAA /* Algorithms */; };
 		FB870B3F2EC0640D00FD7DAA /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3E2EC0640D00FD7DAA /* Auth */; };
@@ -161,6 +162,7 @@
 				FB525D4C2EBD24000058DF45 /* MSAL in Frameworks */,
 				FB525B142EBC74F30058DF45 /* (null) in Frameworks */,
 				FB525D5E2EBD275C0058DF45 /* UIKit.framework in Frameworks */,
+				FB59A1CF2EC2DE9E00148604 /* UIKit.framework in Frameworks */,
 				FB525D4A2EBD23DC0058DF45 /* Storage in Frameworks */,
 				FB870B3B2EC063DA00FD7DAA /* Atomics in Frameworks */,
 				FB525D442EBD23DC0058DF45 /* Functions in Frameworks */,

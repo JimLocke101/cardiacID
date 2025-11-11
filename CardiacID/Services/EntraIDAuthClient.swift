@@ -67,13 +67,14 @@ struct EntraIDUser: Codable, Identifiable {
 
 /// Production EntraID authentication client using MSAL
 @MainActor
-class EntraIDAuthClient: NSObject, ObservableObject {
+class EntraIDAuthClient: NSObject, EntraIDService, HoldableService, ObservableObject {
     // MARK: - Singleton
     static let shared = EntraIDAuthClient()
 
     // MARK: - Dependencies
     private let credentialManager = SecureCredentialManager.shared
     private let environmentConfig = EnvironmentConfig.current
+    private let serviceStateManager = ServiceStateManager.shared
 
     // MARK: - MSAL Configuration
     private var msalApplication: MSALPublicClientApplication?
@@ -83,6 +84,13 @@ class EntraIDAuthClient: NSObject, ObservableObject {
     @Published private(set) var isAuthenticated = false
     @Published private(set) var currentUser: EntraIDUser?
     @Published private(set) var errorMessage: String?
+    @Published private(set) var serviceState: ServiceState = .available
+    @Published private(set) var holdInfo: HoldStateInfo?
+    @Published private(set) var lastError: Error?
+    
+    // Publishers for reactive UI
+    var isAuthenticatedPublisher: Published<Bool>.Publisher { $isAuthenticated }
+    var errorMessagePublisher: Published<String?>.Publisher { $errorMessage }
 
     // MARK: - Configuration
     private var tenantId: String {
@@ -99,8 +107,12 @@ class EntraIDAuthClient: NSObject, ObservableObject {
 
     // MARK: - Initialization
 
-    private override init() {
+    override init() {
         super.init()
+        
+        // Register with service state manager
+        serviceStateManager.registerService(ServiceStateManager.entraIDService, initialState: .available)
+        
         Task {
             await initializeMSAL()
         }
@@ -110,8 +122,13 @@ class EntraIDAuthClient: NSObject, ObservableObject {
         guard !tenantId.isEmpty && !clientId.isEmpty else {
             print("⚠️ EntraID credentials not configured")
             print("💡 Please configure tenant ID and client ID in CredentialSetupView")
+            
+            // Put service on hold due to missing credentials
+            await putOnHold(reason: .missingCredentials)
             return
         }
+
+        updateServiceState(.connecting)
 
         do {
             // Create MSAL authority
@@ -136,12 +153,16 @@ class EntraIDAuthClient: NSObject, ObservableObject {
             print("   Client ID: \(clientId)")
             print("   Redirect URI: \(redirectUri)")
 
+            updateServiceState(.available)
+
             // Check for cached accounts
             await checkCachedAccount()
 
         } catch {
             print("❌ Failed to initialize MSAL: \(error)")
             errorMessage = "MSAL initialization failed: \(error.localizedDescription)"
+            lastError = error
+            await putOnHold(reason: .configurationRequired)
         }
     }
 
@@ -196,8 +217,64 @@ class EntraIDAuthClient: NSObject, ObservableObject {
 
         } catch {
             print("❌ EntraID sign in failed: \(error)")
+            lastError = error
+            await putOnHold(reason: .networkUnavailable)
             throw EntraIDError.authenticationFailed(error)
         }
+    }
+
+    // MARK: - HoldableService Implementation
+    
+    func putOnHold(reason: HoldStateInfo) {
+        holdInfo = reason
+        updateServiceState(.hold)
+        isAuthenticated = false
+        currentUser = nil
+        errorMessage = reason.reason
+    }
+    
+    func resumeFromHold() async throws {
+        guard serviceState == .hold else { return }
+        
+        updateServiceState(.connecting)
+        holdInfo = nil
+        errorMessage = nil
+        lastError = nil
+        
+        // Attempt to reinitialize
+        await initializeMSAL()
+        
+        if serviceState == .available {
+            print("✅ EntraID service resumed from hold")
+        }
+    }
+    
+    func checkAvailability() async -> Bool {
+        // Check if we can reach the authority endpoint
+        guard !tenantId.isEmpty,
+              let authorityURL = URL(string: "\(environmentConfig.entraIDAuthority)/\(tenantId)") else {
+            return false
+        }
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(from: authorityURL)
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode < 500
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
+    
+    private func updateServiceState(_ state: ServiceState) {
+        serviceState = state
+        serviceStateManager.updateServiceState(
+            ServiceStateManager.entraIDService,
+            to: state,
+            holdInfo: holdInfo
+        )
+    }
     }
 
     /// Sign in silently using cached account

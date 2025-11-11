@@ -346,24 +346,32 @@ class AuthenticationManager: ObservableObject {
     }
     
     // MARK: - Event Logging
-    
+
     private func saveAuthenticationEvent(success: Bool) {
-        // Create a new auth event
+        // Create a new auth event with correct AuthEvent structure
         let event = AuthEvent(
+            id: UUID().uuidString,
+            userId: "current_user_id", // TODO: Get from actual auth context
+            eventType: .biometricAuth,
             timestamp: Date(),
+            deviceId: UIDevice.current.identifierForVendor?.uuidString,
+            ipAddress: nil,
+            location: nil,
             success: success,
-            details: success ? "Authentication successful" : "Authentication failed",
-            heartRate: currentHeartRate
+            metadata: [
+                "heartRate": "\(currentHeartRate)",
+                "details": success ? "Authentication successful" : "Authentication failed"
+            ]
         )
-        
+
         // Add to the recent events list
         lastAuthEvents.insert(event, at: 0)
-        
+
         // Limit the list to the 10 most recent events
         if lastAuthEvents.count > 10 {
             lastAuthEvents = Array(lastAuthEvents.prefix(10))
         }
-        
+
         // In a real app, this would also save to Core Data or a remote database
         print("Authentication \(success ? "successful" : "failed") at \(Date())")
     }

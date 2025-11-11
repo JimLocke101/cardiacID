@@ -50,7 +50,12 @@ class AuthViewModel: ObservableObject {
                 guard let self = self else { return }
                 self.isLoading = false
                 self.isAuthenticated = true
-                self.currentUser = User(id: UUID().uuidString, email: email, name: "John Doe (Demo)")
+                self.currentUser = User(
+                    id: UUID().uuidString,
+                    email: email,
+                    firstName: "John",
+                    lastName: "Doe (Demo)"
+                )
             }
             return
         }

@@ -5,6 +5,27 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:../BUILD_READY_STATUS.md">
+      location = "group:ServiceStateManager.swift">
+   </FileRef>
+   <FileRef
+      location = "group:ApplicationsListView.swift">
+   </FileRef>
+   <FileRef
+      location = "group:BluetoothDoorLockService.swift">
+   </FileRef>
+   <FileRef
+      location = "group:SecureCredentialManager.swift">
+   </FileRef>
+   <FileRef
+      location = "group:EnvironmentConfig.swift">
+   </FileRef>
+   <FileRef
+      location = "group:CommonServices.swift">
+   </FileRef>
+   <FileRef
+      location = "group:DeviceTypes.swift">
+   </FileRef>
+   <FileRef
+      location = "group:MockServices.swift">
    </FileRef>
 </Workspace>

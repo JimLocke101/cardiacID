@@ -9,12 +9,12 @@ class DeviceManagementService: NSObject, ObservableObject {
     @Published var availableDevices: [ManagedDevice] = []
     @Published var isScanning = false
     @Published var errorMessage: String?
-    @Published var deviceStatus: [UUID: iPhoneDeviceStatus] = [:]
+    @Published var deviceStatus: [UUID: DeviceStatus] = [:]
     
     // Services
     private let bluetoothService = BluetoothDoorLockService()
     private let nfcService = NFCService()
-    private let entraIDService: MockEntraIDService
+    private let entraIDService: any EntraIDService
     private let passwordlessService = PasswordlessAuthService()
     private let encryptionService = EncryptionService.shared
     private let keychain = KeychainService.shared
@@ -31,7 +31,7 @@ class DeviceManagementService: NSObject, ObservableObject {
         commandResultSubject.eraseToAnyPublisher()
     }
     
-    init(entraIDService: MockEntraIDService) {
+    init(entraIDService: any EntraIDService) {
         self.entraIDService = entraIDService
         super.init()
         setupServices()
@@ -68,13 +68,17 @@ class DeviceManagementService: NSObject, ObservableObject {
             .store(in: &cancellables)
 
         // Setup Entra ID service
-        entraIDService.$isAuthenticated
-            .sink { [weak self] (isAuthenticated: Bool) in
-                if isAuthenticated {
-                    self?.syncEnterpriseDevices()
+        Task { @MainActor in
+            entraIDService.isAuthenticatedPublisher
+                .sink { [weak self] (isAuthenticated: Bool) in
+                    Task {
+                        if isAuthenticated {
+                            await self?.syncEnterpriseDevices()
+                        }
+                    }
                 }
-            }
-            .store(in: &cancellables)
+                .store(in: &cancellables)
+        }
     }
     
     // MARK: - Device Discovery
@@ -207,7 +211,8 @@ class DeviceManagementService: NSObject, ObservableObject {
             return DeviceCommandResult(success: true, deviceId: device.id, command: .connect)
         case .enterpriseDevice:
             // Enterprise device connection requires Entra ID authentication
-            guard entraIDService.isAuthenticated else {
+            let isAuthenticated = await entraIDService.checkAuthenticationStatus()
+            guard isAuthenticated else {
                 throw DeviceManagementError.notAuthenticated
             }
             return DeviceCommandResult(success: true, deviceId: device.id, command: .connect)
@@ -314,7 +319,8 @@ class DeviceManagementService: NSObject, ObservableObject {
     
     private func executeEnterpriseCommand(_ command: DeviceCommand, on device: ManagedDevice, with heartPattern: HeartPattern?) async throws -> DeviceCommandResult {
         // Enterprise device commands require Entra ID authentication
-        guard entraIDService.isAuthenticated else {
+        let isAuthenticated = await entraIDService.checkAuthenticationStatus()
+        guard isAuthenticated else {
             throw DeviceManagementError.notAuthenticated
         }
         
@@ -350,8 +356,8 @@ class DeviceManagementService: NSObject, ObservableObject {
         for lock in bluetoothService.discoveredLocks {
             devices.append(ManagedDevice(
                 name: lock.name,
-                type: DeviceType.bluetoothDoorLock,
-                status: iPhoneDeviceStatus.discovered,
+                type: DeviceType.bluetoothLock,
+                status: DeviceStatus.discovered,
                 bluetoothLock: lock
             ))
         }
@@ -360,8 +366,8 @@ class DeviceManagementService: NSObject, ObservableObject {
         if let nfcTag = nfcService.lastScannedTag {
             devices.append(ManagedDevice(
                 name: "NFC Tag",
-                type: DeviceType.nfcTag,
-                status: iPhoneDeviceStatus.discovered,
+                type: DeviceType.nfcReader,
+                status: DeviceStatus.discovered,
                 nfcTag: nfcTag
             ))
         }
@@ -370,15 +376,16 @@ class DeviceManagementService: NSObject, ObservableObject {
         devices.append(ManagedDevice(
             name: "Apple Watch",
             type: DeviceType.appleWatch,
-            status: iPhoneDeviceStatus.discovered
+            status: DeviceStatus.discovered
         ))
         
         // Add enterprise devices
-        if entraIDService.isAuthenticated {
+        let isAuthenticated = await entraIDService.checkAuthenticationStatus()
+        if isAuthenticated {
             devices.append(ManagedDevice(
                 name: "Enterprise Device",
                 type: DeviceType.enterpriseDevice,
-                status: iPhoneDeviceStatus.discovered
+                status: DeviceStatus.discovered
             ))
         }
         
@@ -392,8 +399,8 @@ class DeviceManagementService: NSObject, ObservableObject {
         for lock in bluetoothService.connectedLocks {
             devices.append(ManagedDevice(
                 name: lock.name,
-                type: DeviceType.bluetoothDoorLock,
-                status: iPhoneDeviceStatus.connected,
+                type: DeviceType.bluetoothLock,
+                status: DeviceStatus.connected,
                 bluetoothLock: lock
             ))
         }
@@ -408,8 +415,8 @@ class DeviceManagementService: NSObject, ObservableObject {
         // Handle NFC tag discovery
         let device = ManagedDevice(
             name: "NFC Tag",
-            type: DeviceType.nfcTag,
-            status: iPhoneDeviceStatus.discovered,
+            type: DeviceType.nfcReader,
+            status: DeviceStatus.discovered,
             nfcTag: tag
         )
         
@@ -454,7 +461,7 @@ struct ManagedDevice: Codable, Identifiable {
     let id: UUID
     let name: String
     let type: DeviceType
-    let status: iPhoneDeviceStatus
+    let status: DeviceStatus
     let bluetoothLock: BluetoothDoorLock?
     let nfcTag: NFCTagData?
     let lastSeen: Date?
@@ -464,7 +471,7 @@ struct ManagedDevice: Codable, Identifiable {
         case id, name, type, status, lastSeen, capabilities
     }
     
-    init(id: UUID = UUID(), name: String, type: DeviceType, status: iPhoneDeviceStatus, bluetoothLock: BluetoothDoorLock? = nil, nfcTag: NFCTagData? = nil, lastSeen: Date? = nil, capabilities: [DeviceCapability] = []) {
+    init(id: UUID = UUID(), name: String, type: DeviceType, status: DeviceStatus, bluetoothLock: BluetoothDoorLock? = nil, nfcTag: NFCTagData? = nil, lastSeen: Date? = nil, capabilities: [DeviceCapability] = []) {
         self.id = id
         self.name = name
         self.type = type
@@ -480,7 +487,7 @@ struct ManagedDevice: Codable, Identifiable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         type = try container.decode(DeviceType.self, forKey: .type)
-        status = try container.decode(iPhoneDeviceStatus.self, forKey: .status)
+        status = try container.decode(DeviceStatus.self, forKey: .status)
         lastSeen = try container.decodeIfPresent(Date.self, forKey: .lastSeen)
         capabilities = try container.decodeIfPresent([DeviceCapability].self, forKey: .capabilities) ?? []
         bluetoothLock = nil
@@ -503,13 +510,6 @@ enum DeviceType: String, Codable, CaseIterable {
     case nfcTag = "nfc_tag"
     case appleWatch = "apple_watch"
     case enterpriseDevice = "enterprise_device"
-}
-
-enum iPhoneDeviceStatus: String, Codable, CaseIterable {
-    case discovered = "discovered"
-    case connected = "connected"
-    case disconnected = "disconnected"
-    case error = "error"
 }
 
 enum DeviceCapability: String, Codable, CaseIterable {
@@ -546,7 +546,7 @@ enum DeviceCommand: String, Codable, CaseIterable {
 enum DeviceUpdate {
     case connected(ManagedDevice)
     case disconnected(ManagedDevice)
-    case statusChanged(ManagedDevice, iPhoneDeviceStatus)
+    case statusChanged(ManagedDevice, DeviceStatus)
     case error(ManagedDevice, String)
 }
 

@@ -3,12 +3,16 @@ import CoreNFC
 import Combine
 
 /// Service for NFC-based authentication and data exchange
-class NFCService: NSObject, ObservableObject {
+@MainActor
+class NFCService: NSObject, ObservableObject, HoldableService {
     @Published var isNFCAvailable = false
     @Published var isScanning = false
     @Published var lastScannedTag: NFCTagData?
     @Published var errorMessage: String?
     @Published var isWriting = false
+    @Published var serviceState: ServiceState = .available
+    @Published var holdInfo: HoldStateInfo?
+    @Published var lastError: Error?
     
     // NFC properties
     private var nfcSession: NFCNDEFReaderSession?
@@ -17,6 +21,7 @@ class NFCService: NSObject, ObservableObject {
     // Security
     private let encryptionService = EncryptionService.shared
     private let keychain = KeychainService.shared
+    private let serviceStateManager = ServiceStateManager.shared
     
     // Publishers
     private let tagScannedSubject = PassthroughSubject<NFCTagData, Never>()
@@ -29,24 +34,47 @@ class NFCService: NSObject, ObservableObject {
     var authenticationPublisher: AnyPublisher<NFCAuthResult, Never> {
         authenticationSubject.eraseToAnyPublisher()
     }
+    }
     
     override init() {
         super.init()
         checkNFCAvailability()
+        serviceStateManager.registerService(ServiceStateManager.nfcService, initialState: .available)
     }
     
     // MARK: - NFC Availability
     
     private func checkNFCAvailability() {
         isNFCAvailable = NFCNDEFReaderSession.readingAvailable
+        
+        if !isNFCAvailable {
+            putOnHold(reason: HoldStateInfo(
+                reason: "NFC not available on this device",
+                suggestedAction: "Use a device with NFC capability",
+                canRetry: false,
+                estimatedResolution: nil
+            ))
+        }
     }
     
     // MARK: - NFC Tag Reading
     
     /// Start scanning for NFC tags
     func startScanning() {
+        guard serviceState != .hold else {
+            errorMessage = "NFC service is on hold"
+            return
+        }
+        
         guard isNFCAvailable else {
-            errorMessage = "NFC is not available on this device"
+            putOnHold(reason: HoldStateInfo(
+                reason: "NFC is not available on this device",
+                suggestedAction: "Use a device with NFC capability",
+                canRetry: false,
+                estimatedResolution: nil
+            ))
+            return
+        }
             return
         }
         
@@ -94,22 +122,21 @@ class NFCService: NSObject, ObservableObject {
     func authenticateWithHeartPattern(_ pattern: HeartPattern, via nfcTag: NFCTagData) {
         Task {
             do {
-                // Encrypt heart pattern
-                guard let encryptedPattern = encryptionService.encryptHeartPattern(pattern) else {
-                    throw NFCError.encryptionFailed
-                }
-                
+                // Encode and encrypt heart pattern
+                let patternData = try JSONEncoder().encode(pattern)
+                let encryptedPattern = try encryptionService.encryptHeartPattern(patternData)
+
                 // Create authentication payload
                 let authPayload = NFCAuthPayload(
                     heartPattern: encryptedPattern,
                     timestamp: Date(),
                     deviceId: getDeviceId(),
-                    nonce: encryptionService.generateRandomData(length: 16) ?? Data()
+                    nonce: try encryptionService.generateRandomData(length: 16)
                 )
-                
+
                 // Send authentication request via NFC
                 let result = try await sendAuthenticationRequest(authPayload, via: nfcTag)
-                
+
                 await MainActor.run {
                     self.authenticationSubject.send(result)
                 }
@@ -126,16 +153,23 @@ class NFCService: NSObject, ObservableObject {
     private func sendAuthenticationRequest(_ payload: NFCAuthPayload, via nfcTag: NFCTagData) async throws -> NFCAuthResult {
         // In a real implementation, this would send the authentication request via NFC
         // For now, we'll simulate the authentication process
-        
+
         // Simulate network delay
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
+
         // Simulate authentication success based on pattern quality
         let success = payload.heartPattern.count > 0
-        
+
+        let token: String?
+        if success {
+            token = (try? encryptionService.generateRandomString(length: 32)) ?? ""
+        } else {
+            token = nil
+        }
+
         return NFCAuthResult(
             success: success,
-            token: success ? encryptionService.generateRandomString(length: 32) ?? "" : nil,
+            token: token,
             expiresAt: success ? Date().addingTimeInterval(300) : nil, // 5 minutes
             permissions: success ? [.read, .write, .authenticate] : [],
             error: success ? nil : "Authentication failed"
@@ -150,17 +184,21 @@ class NFCService: NSObject, ObservableObject {
             Task {
                 do {
                     // Encrypt data before sending
-                    guard let encryptedData = self.encryptionService.encrypt(data: data) else {
-                        promise(.failure(.encryptionFailed))
-                        return
-                    }
-                    
+                    let encryptedData = try self.encryptionService.encrypt(data)
+
                     // Send data via NFC
                     let response = try await self.sendData(encryptedData, via: nfcTag)
-                    
+
                     // Decrypt response
-                    let decryptedResponse = response != nil ? self.encryptionService.decrypt(data: response!) : nil
+                    let decryptedResponse: Data?
+                    if let responseData = response {
+                        decryptedResponse = try self.encryptionService.decrypt(responseData)
+                    } else {
+                        decryptedResponse = nil
+                    }
                     promise(.success(decryptedResponse))
+                } catch let error as EncryptionError {
+                    promise(.failure(.encryptionFailed))
                 } catch {
                     promise(.failure(error as? NFCError ?? .unknown))
                 }
@@ -172,11 +210,11 @@ class NFCService: NSObject, ObservableObject {
     private func sendData(_ data: Data, via nfcTag: NFCTagData) async throws -> Data? {
         // In a real implementation, this would send data via NFC
         // For now, we'll simulate the data exchange
-        
+
         try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
+
         // Simulate response data
-        return encryptionService.generateRandomData(length: 32)
+        return try encryptionService.generateRandomData(length: 32)
     }
     
     // MARK: - NFC Tag Management
@@ -186,12 +224,10 @@ class NFCService: NSObject, ObservableObject {
         return Future<Bool, NFCError> { promise in
             Task {
                 do {
-                    // Encrypt heart pattern
-                    guard let encryptedPattern = self.encryptionService.encryptHeartPattern(pattern) else {
-                        promise(.failure(.encryptionFailed))
-                        return
-                    }
-                    
+                    // Encode and encrypt heart pattern
+                    let patternData = try JSONEncoder().encode(pattern)
+                    let encryptedPattern = try self.encryptionService.encryptHeartPattern(patternData)
+
                     // Create tag data
                     let tagData = NFCTagData(
                         type: .heartID,
@@ -199,7 +235,7 @@ class NFCService: NSObject, ObservableObject {
                         timestamp: Date(),
                         deviceId: self.getDeviceId()
                     )
-                    
+
                     // Write to NFC tag
                     let success = try await self.writeTagData(tagData)
                     promise(.success(success))
@@ -218,14 +254,12 @@ class NFCService: NSObject, ObservableObject {
                 do {
                     // Read tag data
                     let tagData = try await self.readTagData()
-                    
-                    // Decrypt heart pattern
-                    guard let decryptedPattern = self.encryptionService.decryptHeartPattern(tagData.data) else {
-                        promise(.failure(.decryptionFailed))
-                        return
-                    }
-                    
-                    promise(.success(decryptedPattern))
+
+                    // Decrypt and decode heart pattern
+                    let decryptedData = try self.encryptionService.decryptHeartPattern(tagData.data)
+                    let heartPattern = try JSONDecoder().decode(HeartPattern.self, from: decryptedData)
+
+                    promise(.success(heartPattern))
                 } catch {
                     promise(.failure(error as? NFCError ?? .unknown))
                 }
@@ -369,6 +403,74 @@ enum NFCPermission {
 enum NFCError: Error, LocalizedError {
     case notAvailable
     case encryptionFailed
+    case serviceOnHold
+    case invalidTag
+    case scanningFailed
+    
+    var errorDescription: String? {
+        switch self {
+        case .notAvailable:
+            return "NFC not available"
+        case .encryptionFailed:
+            return "Encryption failed"
+        case .serviceOnHold:
+            return "NFC service on hold"
+        case .invalidTag:
+            return "Invalid NFC tag"
+        case .scanningFailed:
+            return "NFC scanning failed"
+        }
+    }
+}
+
+// MARK: - HoldableService Implementation
+
+extension NFCService {
+    func putOnHold(reason: HoldStateInfo) {
+        holdInfo = reason
+        updateServiceState(.hold)
+        errorMessage = reason.reason
+        
+        // Stop any active scanning
+        stopScanning()
+    }
+    
+    func resumeFromHold() async throws {
+        guard serviceState == .hold else { return }
+        
+        holdInfo = nil
+        errorMessage = nil
+        lastError = nil
+        
+        // Recheck availability
+        checkNFCAvailability()
+        
+        if isNFCAvailable {
+            updateServiceState(.available)
+            print("✅ NFC service resumed from hold")
+        } else {
+            putOnHold(reason: HoldStateInfo(
+                reason: "NFC still not available",
+                suggestedAction: "Use a device with NFC capability",
+                canRetry: false,
+                estimatedResolution: nil
+            ))
+        }
+    }
+    
+    func checkAvailability() async -> Bool {
+        return NFCNDEFReaderSession.readingAvailable
+    }
+    
+    private func updateServiceState(_ state: ServiceState) {
+        serviceState = state
+        serviceStateManager.updateServiceState(
+            ServiceStateManager.nfcService,
+            to: state,
+            holdInfo: holdInfo
+        )
+    }
+}
     case decryptionFailed
     case tagNotSupported
     case writeFailed

@@ -17,7 +17,7 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     @Published var lastActivity: TechnologyActivityEvent?
     
     // MARK: - Services
-    private let entraIDService: EntraIDService
+    private let entraIDService: any EntraIDService
     private let bluetoothService: BluetoothDoorLockService
     private let nfcService: NFCService
     private let deviceManagementService: DeviceManagementService
@@ -31,7 +31,7 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     private var deviceCapabilities: [UUID: Set<DeviceCapability>] = [:]
     
     // MARK: - Initialization
-    init(entraIDService: EntraIDService) {
+    init(entraIDService: any EntraIDService) {
         self.entraIDService = entraIDService
         self.bluetoothService = BluetoothDoorLockService()
         self.nfcService = NFCService()
@@ -64,7 +64,7 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     
     private func setupErrorHandling() {
         // EntraID errors
-        entraIDService.$errorMessage
+        entraIDService.errorMessagePublisher
             .compactMap { $0 }
             .sink { [weak self] error in
                 self?.handleError(.entraID, error)
@@ -120,7 +120,7 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     
     private func setupAuthenticationFlows() {
         // EntraID authentication
-        entraIDService.$isAuthenticated
+        entraIDService.isAuthenticatedPublisher
             .sink { [weak self] isAuthenticated in
                 self?.updateIntegrationStatus()
                 if isAuthenticated {

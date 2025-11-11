@@ -99,29 +99,39 @@ struct DashboardView: View {
     }
     
     // MARK: - Data Loading
-    
+
     private func loadRecentEvents() {
-        // Load recent auth events from Supabase
-        SupabaseService.shared.getRecentAuthEvents(limit: 5)
-            .sink(
-                receiveCompletion: { _ in },
-                receiveValue: { events in
+        // Load recent auth events from Supabase using async/await
+        Task {
+            do {
+                let events = try await SupabaseService.shared.getRecentAuthEvents(limit: 5)
+                await MainActor.run {
                     self.recentEvents = events
                 }
-            )
-            .store(in: &cancellables)
+            } catch {
+                print("Failed to load recent events: \(error)")
+                await MainActor.run {
+                    self.recentEvents = []
+                }
+            }
+        }
     }
-    
+
     private func loadConnectedDevices() {
-        // Load connected devices from Supabase
-        SupabaseService.shared.getDevices()
-            .sink(
-                receiveCompletion: { _ in },
-                receiveValue: { devices in
+        // Load connected devices from Supabase using async/await
+        Task {
+            do {
+                let devices = try await SupabaseService.shared.getDevices()
+                await MainActor.run {
                     self.connectedDevices = devices.filter { $0.status == .active }
                 }
-            )
-            .store(in: &cancellables)
+            } catch {
+                print("Failed to load connected devices: \(error)")
+                await MainActor.run {
+                    self.connectedDevices = []
+                }
+            }
+        }
     }
     
     // MARK: - Authentication
@@ -295,13 +305,8 @@ struct DeviceStatusCard: View {
         .cornerRadius(16)
     }
     
-    func deviceIcon(for type: Device.SupabaseDeviceType) -> String {
-        switch type {
-        case .appleWatch: return "applewatch"
-        case .galaxyWatch: return "smartwatch"
-        case .ouraRing: return "circle"
-        case .other: return "waveform.circle"
-        }
+    func deviceIcon(for type: Device.DeviceType) -> String {
+        return type.icon
     }
 }
 
@@ -355,11 +360,22 @@ struct RecentActivityList: View {
     func eventDescription(for event: AuthEvent) -> String {
         let action: String
         switch event.eventType {
-        case .authentication: action = "Authentication"
-        case .enrollment: action = "Enrollment"
-        case .revocation: action = "Revocation"
+        case .biometricAuth, .passwordAuth:
+            action = "Authentication"
+        case .signIn:
+            action = "Sign In"
+        case .signOut:
+            action = "Sign Out"
+        case .failedAttempt:
+            action = "Failed Attempt"
+        case .accountLocked:
+            action = "Account Locked"
+        case .passwordReset:
+            action = "Password Reset"
+        case .tokenRefresh:
+            action = "Token Refresh"
         }
-        
+
         return "\(action) \(event.success ? "Successful" : "Failed")"
     }
     

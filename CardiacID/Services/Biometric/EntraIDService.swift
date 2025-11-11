@@ -1,25 +1,41 @@
-#if DEMO_MODE
 import Foundation
 import Combine
 
 /// Protocol defining EntraID authentication service capabilities
+/// Available in both DEMO_MODE and PRODUCTION_MODE
+@MainActor
 protocol EntraIDService: ObservableObject {
     var isAuthenticated: Bool { get }
     var currentUser: EntraIDUser? { get }
     var errorMessage: String? { get }
     
-    func signIn() async throws
-    func signOut() async throws  
+    // Publishers for reactive UI
+    var isAuthenticatedPublisher: Published<Bool>.Publisher { get }
+    var errorMessagePublisher: Published<String?>.Publisher { get }
+
+    func signIn() async throws -> EntraIDUser
+    func signOut() async throws
     func refreshToken() async throws
     func getCurrentUser() async throws -> EntraIDUser?
     func checkAuthenticationStatus() async -> Bool
 }
 
+// MARK: - Mock Implementation
 /// Mock implementation for development/testing
-class MockEntraIDService: EntraIDService, ObservableObject {
+@MainActor
+class MockEntraIDService: EntraIDService, HoldableService, ObservableObject {
     @Published var isAuthenticated: Bool = false
     @Published var currentUser: EntraIDUser?
     @Published var errorMessage: String?
+    @Published var serviceState: ServiceState = .available
+    @Published var holdInfo: HoldStateInfo?
+    @Published var lastError: Error?
+    
+    // Publishers for reactive UI
+    var isAuthenticatedPublisher: Published<Bool>.Publisher { $isAuthenticated }
+    var errorMessagePublisher: Published<String?>.Publisher { $errorMessage }
+    
+    private let serviceStateManager = ServiceStateManager.shared
     
     private var mockUsers: [EntraIDUser] = [
         EntraIDUser(
@@ -46,15 +62,21 @@ class MockEntraIDService: EntraIDService, ObservableObject {
         )
     ]
     
-    func signIn() async throws {
+    init() {
+        serviceStateManager.registerService(ServiceStateManager.entraIDService, initialState: .available)
+    }
+    
+    func signIn() async throws -> EntraIDUser {
         // Simulate network delay
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
         
         // Simulate random success/failure for testing
         if Bool.random() {
-            currentUser = mockUsers.randomElement()
+            let user = mockUsers.randomElement()!
+            currentUser = user
             isAuthenticated = true
             errorMessage = nil
+            return user
         } else {
             throw APIError.authenticationError("Mock authentication failed")
         }
@@ -87,5 +109,61 @@ class MockEntraIDService: EntraIDService, ObservableObject {
     func checkAuthenticationStatus() async -> Bool {
         return isAuthenticated
     }
+    
+    // MARK: - HoldableService Implementation
+    
+    func putOnHold(reason: HoldStateInfo) {
+        holdInfo = reason
+        serviceState = .hold
+        isAuthenticated = false
+        currentUser = nil
+        errorMessage = reason.reason
+        serviceStateManager.updateServiceState(
+            ServiceStateManager.entraIDService,
+            to: .hold,
+            holdInfo: reason
+        )
+    }
+    
+    func resumeFromHold() async throws {
+        guard serviceState == .hold else { return }
+        
+        serviceState = .connecting
+        holdInfo = nil
+        errorMessage = nil
+        lastError = nil
+        
+        serviceStateManager.updateServiceState(
+            ServiceStateManager.entraIDService,
+            to: .connecting
+        )
+        
+        // Simulate reconnection delay
+        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        
+        serviceState = .available
+        serviceStateManager.updateServiceState(
+            ServiceStateManager.entraIDService,
+            to: .available
+        )
+        
+        print("✅ Mock EntraID service resumed from hold")
+    }
+    
+    func checkAvailability() async -> Bool {
+        // Mock always returns true for availability
+        return true
+    }
 }
-#endif
+
+// MARK: - Factory Method
+/// Factory to create the appropriate EntraID service based on configuration
+class EntraIDServiceFactory {
+    static func create() -> any EntraIDService {
+        #if DEMO_MODE
+        return MockEntraIDService()
+        #else
+        return EntraIDAuthClient()
+        #endif
+    }
+}

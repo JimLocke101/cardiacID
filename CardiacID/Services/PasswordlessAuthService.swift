@@ -5,16 +5,21 @@ import LocalAuthentication
 import CoreNFC
 
 /// Service for enhanced passwordless authentication protocols (FIDO2, WebAuthn, etc.)
-class PasswordlessAuthService: NSObject, ObservableObject {
+@MainActor
+class PasswordlessAuthService: NSObject, ObservableObject, HoldableService {
     @Published var isAuthenticated = false
     @Published var availableMethods: [PasswordlessMethod] = []
     @Published var errorMessage: String?
     @Published var isEnrolling = false
+    @Published var serviceState: ServiceState = .available
+    @Published var holdInfo: HoldStateInfo?
+    @Published var lastError: Error?
     
     // Security
     private let encryptionService = EncryptionService.shared
     private let keychain = KeychainService.shared
     private let localAuthContext = LAContext()
+    private let serviceStateManager = ServiceStateManager.shared
     
     // Publishers
     private let authResultSubject = PassthroughSubject<PasswordlessAuthResult, Never>()
@@ -30,6 +35,7 @@ class PasswordlessAuthService: NSObject, ObservableObject {
     
     override init() {
         super.init()
+        serviceStateManager.registerService(ServiceStateManager.passwordlessService, initialState: .available)
         loadAvailableMethods()
     }
     
@@ -150,17 +156,17 @@ class PasswordlessAuthService: NSObject, ObservableObject {
     private func enrollFIDO2() async throws -> PasswordlessEnrollmentResult {
         // In a real implementation, this would create FIDO2 credentials
         // For now, we'll simulate the enrollment process
-        
+
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-        
+
         // Generate FIDO2 key pair
         let keyPair = try generateFIDO2KeyPair()
-        
-        // Store credentials
-        keychain.store(keyPair.privateKey, forKey: "fido2_private_key")
-        keychain.store(keyPair.publicKey, forKey: "fido2_public_key")
+
+        // Store credentials as base64 strings
+        keychain.store(keyPair.privateKey.base64EncodedString(), forKey: "fido2_private_key")
+        keychain.store(keyPair.publicKey.base64EncodedString(), forKey: "fido2_public_key")
         keychain.store("enrolled", forKey: "fido2_enrollment")
-        
+
         return PasswordlessEnrollmentResult(
             success: true,
             method: PasswordlessMethod(type: .fido2, name: "FIDO2 / WebAuthn", isAvailable: true, isEnrolled: true),
@@ -205,10 +211,14 @@ class PasswordlessAuthService: NSObject, ObservableObject {
             throw PasswordlessAuthError.invalidHeartPattern
         }
 
-        // Encrypt and store heart pattern
-        let encryptedPattern = try encryptionService.encryptHeartPattern(pattern.heartRateData)
+        // Convert heartRateData to Data, then encrypt
+        let encoder = JSONEncoder()
+        let heartRateData = try encoder.encode(pattern.heartRateData)
+        let encryptedPattern = try encryptionService.encryptHeartPattern(heartRateData)
 
-        keychain.store(encryptedPattern, forKey: "heart_id_pattern")
+        // Store encrypted pattern as base64 string
+        let base64Pattern = encryptedPattern.base64EncodedString()
+        keychain.store(base64Pattern, forKey: "heart_id_pattern")
         keychain.store("enrolled", forKey: "heart_id_enrollment")
 
         return PasswordlessEnrollmentResult(
@@ -347,21 +357,25 @@ class PasswordlessAuthService: NSObject, ObservableObject {
         }
 
         // Check if Heart ID is enrolled
-        guard let storedPatternData = keychain.retrieveData(forKey: "heart_id_pattern") else {
+        guard let storedPatternBase64 = keychain.retrieve(forKey: "heart_id_pattern"),
+              let storedPatternData = Data(base64Encoded: storedPatternBase64) else {
             throw PasswordlessAuthError.notEnrolled
         }
 
-        let storedPatternArray = try encryptionService.decryptHeartPattern(storedPatternData)
-
-        // Convert Data back to array of doubles for comparison
-        let dataCount = storedPatternArray.count / MemoryLayout<Double>.size
-        let doubleArray = storedPatternArray.withUnsafeBytes { buffer in
-            Array(buffer.bindMemory(to: Double.self)).prefix(dataCount)
-        }
-        let storedHeartRateData = Array(doubleArray)
+        // Decrypt and decode stored pattern
+        let decryptedData = try encryptionService.decryptHeartPattern(storedPatternData)
+        let decoder = JSONDecoder()
+        let storedHeartRateData = try decoder.decode([Double].self, from: decryptedData)
 
         // Compare patterns (simplified comparison)
-        let similarity = compareHeartPatterns(HeartPattern(heartRateData: storedHeartRateData, confidence: 0.8), pattern)
+        let storedPattern = HeartPattern(
+            heartRateData: storedHeartRateData,
+            duration: 10.0,
+            encryptedIdentifier: "stored",
+            qualityScore: 0.8,
+            confidence: 0.8
+        )
+        let similarity = compareHeartPatterns(storedPattern, pattern)
         let success = similarity > 0.8 // 80% similarity threshold
 
         return PasswordlessAuthResult(
@@ -537,5 +551,48 @@ enum PasswordlessAuthError: Error, LocalizedError {
         case .unknown:
             return "Unknown error"
         }
+    }
+}
+
+// MARK: - HoldableService Implementation
+
+extension PasswordlessAuthService {
+    func putOnHold(reason: HoldStateInfo) {
+        holdInfo = reason
+        updateServiceState(.hold)
+        errorMessage = reason.reason
+        isAuthenticated = false
+        isEnrolling = false
+    }
+    
+    func resumeFromHold() async throws {
+        guard serviceState == .hold else { return }
+        
+        holdInfo = nil
+        errorMessage = nil
+        lastError = nil
+        
+        // Recheck biometric availability
+        loadAvailableMethods()
+        
+        if !availableMethods.isEmpty {
+            updateServiceState(.available)
+            print("✅ Passwordless auth service resumed from hold")
+        } else {
+            putOnHold(reason: .permissionsRequired)
+        }
+    }
+    
+    func checkAvailability() async -> Bool {
+        return localAuthContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+    }
+    
+    private func updateServiceState(_ state: ServiceState) {
+        serviceState = state
+        serviceStateManager.updateServiceState(
+            ServiceStateManager.passwordlessService,
+            to: state,
+            holdInfo: holdInfo
+        )
     }
 }

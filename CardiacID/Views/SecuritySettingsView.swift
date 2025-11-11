@@ -1,6 +1,22 @@
 import SwiftUI
 import Combine
 
+// MARK: - Supporting Types
+
+struct AuthEvent {
+    let eventType: EventType
+    let timestamp: Date
+    let success: Bool
+    let device: String?
+    let location: String?
+    
+    enum EventType {
+        case authentication
+        case enrollment
+        case revocation
+    }
+}
+
 struct SecuritySettingsView: View {
     // Environment objects
     @EnvironmentObject private var authManager: AuthenticationManager
@@ -195,21 +211,25 @@ struct SecuritySettingsView: View {
         
         // Load sensitivity setting
         selectedSensitivity = UserDefaults.standard.integer(forKey: "sensitivityLevel")
-        
+
         // Load authentication state
         continuousAuth = authManager.isMonitoring
-        
-        // Load recent events
-        SupabaseService.shared.getRecentAuthEvents(limit: 3)
-            .sink(
-                receiveCompletion: { _ in
-                    isLoading = false
-                },
-                receiveValue: { events in
+
+        // Load recent events using async/await
+        Task {
+            do {
+                let events = try await SupabaseService.shared.getRecentAuthEvents(limit: 3)
+                await MainActor.run {
                     self.recentEvents = events
+                    self.isLoading = false
                 }
-            )
-            .store(in: &cancellables)
+            } catch {
+                print("Failed to load recent events: \(error)")
+                await MainActor.run {
+                    self.isLoading = false
+                }
+            }
+        }
     }
 }
 
