@@ -5,27 +5,18 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:ServiceStateManager.swift">
+      location = "group:EnvironmentConfig 2.swift">
    </FileRef>
    <FileRef
-      location = "group:ApplicationsListView.swift">
+      location = "group:SupabaseConfiguration.swift">
    </FileRef>
    <FileRef
-      location = "group:BluetoothDoorLockService.swift">
+      location = "group:Todo.swift">
    </FileRef>
    <FileRef
-      location = "group:SecureCredentialManager.swift">
+      location = "group:SupabaseClient.swift">
    </FileRef>
    <FileRef
-      location = "group:EnvironmentConfig.swift">
-   </FileRef>
-   <FileRef
-      location = "group:CommonServices.swift">
-   </FileRef>
-   <FileRef
-      location = "group:DeviceTypes.swift">
-   </FileRef>
-   <FileRef
-      location = "group:MockServices.swift">
+      location = "group:TodoContentView.swift">
    </FileRef>
 </Workspace>

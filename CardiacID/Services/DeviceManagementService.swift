@@ -3,6 +3,34 @@ import Combine
 import CoreBluetooth
 import CoreNFC
 
+// MARK: - Device Management Error Types
+
+enum DeviceManagementError: LocalizedError {
+    case deviceNotFound
+    case notAuthenticated
+    case connectionFailed
+    case commandFailed(String)
+    case unsupportedDevice
+    case networkError
+    
+    var errorDescription: String? {
+        switch self {
+        case .deviceNotFound:
+            return "Device not found"
+        case .notAuthenticated:
+            return "Authentication required"
+        case .connectionFailed:
+            return "Failed to connect to device"
+        case .commandFailed(let message):
+            return "Command failed: \(message)"
+        case .unsupportedDevice:
+            return "Device not supported"
+        case .networkError:
+            return "Network error"
+        }
+    }
+}
+
 /// Comprehensive device management service for controlling all connected devices
 class DeviceManagementService: NSObject, ObservableObject {
     @Published var connectedDevices: [ManagedDevice] = []

@@ -7,23 +7,60 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FB45EF0B2EC2EBC400758DFE /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF0A2EC2EBC400758DFE /* Auth */; };
+		FB45EF0D2EC2EBC400758DFE /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF0C2EC2EBC400758DFE /* Functions */; };
+		FB45EF0F2EC2EBC400758DFE /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF0E2EC2EBC400758DFE /* PostgREST */; };
+		FB45EF112EC2EBC400758DFE /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF102EC2EBC400758DFE /* Realtime */; };
+		FB45EF132EC2EBC400758DFE /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF122EC2EBC400758DFE /* Storage */; };
+		FB45EF152EC2EBC400758DFE /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF142EC2EBC400758DFE /* Supabase */; };
+		FB45EF182EC2EC0900758DFE /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */; };
+		FB45EF192EC2EC0900758DFE /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF172EC2EC0900758DFE /* CoreData.framework */; };
+		FB45EF1A2EC2EC2200758DFE /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */; };
+		FB45EF1B2EC2ED3100758DFE /* SecurityUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D542EBD272E0058DF45 /* SecurityUI.framework */; };
+		FB45EF1C2EC2ED3100758DFE /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; };
+		FB45EF1D2EC2ED3100758DFE /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; };
+		FB45EF272EC2ED3100758DFE /* CoreNFC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF202EC2ED3100758DFE /* CoreNFC.framework */; };
+		FB45EF282EC2ED3100758DFE /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF212EC2ED3100758DFE /* CryptoKit.framework */; };
+		FB45EF292EC2ED3100758DFE /* CryptoTokenKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF222EC2ED3100758DFE /* CryptoTokenKit.framework */; };
+		FB45EF2A2EC2ED3100758DFE /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF232EC2ED3100758DFE /* CoreML.framework */; };
+		FB45EF2E2EC2F11800758DFE /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF2D2EC2F11800758DFE /* MSAL */; };
+		FB45EF312EC302D100758DFE /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF242EC2ED3100758DFE /* SwiftData.framework */; };
+		FB45EF322EC302D100758DFE /* SwiftData.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF242EC2ED3100758DFE /* SwiftData.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF332EC302D300758DFE /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF1F2EC2ED3100758DFE /* Security.framework */; };
+		FB45EF342EC302D300758DFE /* Security.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF1F2EC2ED3100758DFE /* Security.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF352EC302D500758DFE /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF1E2EC2ED3100758DFE /* MobileCoreServices.framework */; };
+		FB45EF362EC302D500758DFE /* MobileCoreServices.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF1E2EC2ED3100758DFE /* MobileCoreServices.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF542EC3049800758DFE /* WorkoutKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF382EC303D200758DFE /* WorkoutKit.framework */; };
+		FB45EF552EC3049800758DFE /* WorkoutKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF382EC303D200758DFE /* WorkoutKit.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF562EC3049C00758DFE /* WatchKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3E2EC303D200758DFE /* WatchKit.framework */; };
+		FB45EF572EC3049C00758DFE /* WatchKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3E2EC303D200758DFE /* WatchKit.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF582EC3049D00758DFE /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF442EC303D200758DFE /* WatchConnectivity.framework */; };
+		FB45EF592EC3049D00758DFE /* WatchConnectivity.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF442EC303D200758DFE /* WatchConnectivity.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF5A2EC304A100758DFE /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF432EC303D200758DFE /* UIKit.framework */; };
+		FB45EF5B2EC304A100758DFE /* UIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF432EC303D200758DFE /* UIKit.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF5C2EC304A400758DFE /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF372EC303D200758DFE /* SwiftUI.framework */; };
+		FB45EF5D2EC304A400758DFE /* SwiftUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF372EC303D200758DFE /* SwiftUI.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF5E2EC304A600758DFE /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF392EC303D200758DFE /* SwiftData.framework */; };
+		FB45EF5F2EC304A600758DFE /* SwiftData.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF392EC303D200758DFE /* SwiftData.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF602EC304A700758DFE /* SecurityUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3C2EC303D200758DFE /* SecurityUI.framework */; };
+		FB45EF612EC304A700758DFE /* SecurityUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3C2EC303D200758DFE /* SecurityUI.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF622EC304A900758DFE /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3D2EC303D200758DFE /* Security.framework */; };
+		FB45EF632EC304A900758DFE /* Security.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3D2EC303D200758DFE /* Security.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF642EC304AB00758DFE /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3A2EC303D200758DFE /* MobileCoreServices.framework */; };
+		FB45EF652EC304AB00758DFE /* MobileCoreServices.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF3A2EC303D200758DFE /* MobileCoreServices.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF662EC304AD00758DFE /* AuthenticationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF462EC303E900758DFE /* AuthenticationServices.framework */; };
+		FB45EF672EC304AD00758DFE /* AuthenticationServices.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF462EC303E900758DFE /* AuthenticationServices.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FB45EF932EC307D700758DFE /* XcodeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF412EC303D200758DFE /* XcodeKit.framework */; };
+		FB45EF942EC307D700758DFE /* XcodeKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF412EC303D200758DFE /* XcodeKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FB45EF962EC307FE00758DFE /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF952EC307FE00758DFE /* MSAL */; };
 		FB525B142EBC74F30058DF45 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		FB525B152EBC74F30058DF45 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		FB525D422EBD23DC0058DF45 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D412EBD23DC0058DF45 /* Auth */; };
-		FB525D442EBD23DC0058DF45 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D432EBD23DC0058DF45 /* Functions */; };
-		FB525D462EBD23DC0058DF45 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D452EBD23DC0058DF45 /* PostgREST */; };
-		FB525D482EBD23DC0058DF45 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D472EBD23DC0058DF45 /* Realtime */; };
-		FB525D4A2EBD23DC0058DF45 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D492EBD23DC0058DF45 /* Storage */; };
-		FB525D4C2EBD24000058DF45 /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D4B2EBD24000058DF45 /* MSAL */; };
-		FB525D4E2EBD240E0058DF45 /* Algorithms in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D4D2EBD240E0058DF45 /* Algorithms */; };
-		FB525D502EBD241F0058DF45 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D4F2EBD241F0058DF45 /* Supabase */; };
-		FB525D522EBD24310058DF45 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D512EBD24310058DF45 /* Atomics */; };
 		FB525D592EBD27570058DF45 /* SecurityUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D542EBD272E0058DF45 /* SecurityUI.framework */; };
-		FB525D5A2EBD27570058DF45 /* SecurityUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D542EBD272E0058DF45 /* SecurityUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FB525D5A2EBD27570058DF45 /* SecurityUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D542EBD272E0058DF45 /* SecurityUI.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FB525D5C2EBD275A0058DF45 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; };
-		FB525D5D2EBD275A0058DF45 /* SwiftUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FB525D5D2EBD275A0058DF45 /* SwiftUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FB525D5E2EBD275C0058DF45 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; };
-		FB525D5F2EBD275C0058DF45 /* UIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FB525D5F2EBD275C0058DF45 /* UIKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FB525D602EBD28F10058DF45 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D552EBD272E0058DF45 /* SwiftUI.framework */; };
 		FB525D622EBD2A790058DF45 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D612EBD2A790058DF45 /* Auth */; };
 		FB525D642EBD2A790058DF45 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D632EBD2A790058DF45 /* Functions */; };
@@ -31,10 +68,6 @@
 		FB525D682EBD2A790058DF45 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D672EBD2A790058DF45 /* Realtime */; };
 		FB525D6A2EBD2A790058DF45 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = FB525D692EBD2A790058DF45 /* Storage */; };
 		FB59A1CF2EC2DE9E00148604 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB525D532EBD272E0058DF45 /* UIKit.framework */; };
-		FB870B3B2EC063DA00FD7DAA /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3A2EC063DA00FD7DAA /* Atomics */; };
-		FB870B3D2EC063F200FD7DAA /* Algorithms in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3C2EC063F200FD7DAA /* Algorithms */; };
-		FB870B3F2EC0640D00FD7DAA /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B3E2EC0640D00FD7DAA /* Auth */; };
-		FB870B412EC0641E00FD7DAA /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = FB870B402EC0641E00FD7DAA /* PostgREST */; };
 		FBF0C0BD2E70DF25005C425B /* CardiacID Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = FBF0C0BC2E70DF25005C425B /* CardiacID Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -77,6 +110,27 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		FB45EF532EC3042700758DFE /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				FB45EF942EC307D700758DFE /* XcodeKit.framework in Embed Frameworks */,
+				FB45EF572EC3049C00758DFE /* WatchKit.framework in Embed Frameworks */,
+				FB45EF592EC3049D00758DFE /* WatchConnectivity.framework in Embed Frameworks */,
+				FB45EF652EC304AB00758DFE /* MobileCoreServices.framework in Embed Frameworks */,
+				FB45EF672EC304AD00758DFE /* AuthenticationServices.framework in Embed Frameworks */,
+				FB45EF5F2EC304A600758DFE /* SwiftData.framework in Embed Frameworks */,
+				FB45EF552EC3049800758DFE /* WorkoutKit.framework in Embed Frameworks */,
+				FB45EF5D2EC304A400758DFE /* SwiftUI.framework in Embed Frameworks */,
+				FB45EF612EC304A700758DFE /* SecurityUI.framework in Embed Frameworks */,
+				FB45EF632EC304A900758DFE /* Security.framework in Embed Frameworks */,
+				FB45EF5B2EC304A100758DFE /* UIKit.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FB525D5B2EBD27570058DF45 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -84,7 +138,10 @@
 			dstSubfolderSpec = 10;
 			files = (
 				FB525D5D2EBD275A0058DF45 /* SwiftUI.framework in Embed Frameworks */,
+				FB45EF342EC302D300758DFE /* Security.framework in Embed Frameworks */,
 				FB525D5F2EBD275C0058DF45 /* UIKit.framework in Embed Frameworks */,
+				FB45EF362EC302D500758DFE /* MobileCoreServices.framework in Embed Frameworks */,
+				FB45EF322EC302D100758DFE /* SwiftData.framework in Embed Frameworks */,
 				FB525D5A2EBD27570058DF45 /* SecurityUI.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
@@ -104,6 +161,31 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CoreBluetooth.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF172EC2EC0900758DFE /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CoreData.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF1E2EC2ED3100758DFE /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/MobileCoreServices.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF1F2EC2ED3100758DFE /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF202EC2ED3100758DFE /* CoreNFC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreNFC.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CoreNFC.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF212EC2ED3100758DFE /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CryptoKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF222EC2ED3100758DFE /* CryptoTokenKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoTokenKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CryptoTokenKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF232EC2ED3100758DFE /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CoreML.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF242EC2ED3100758DFE /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/SwiftData.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF372EC303D200758DFE /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/SwiftUI.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF382EC303D200758DFE /* WorkoutKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WorkoutKit.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/WorkoutKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF392EC303D200758DFE /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/SwiftData.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF3A2EC303D200758DFE /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/MobileCoreServices.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF3B2EC303D200758DFE /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/CoreML.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF3C2EC303D200758DFE /* SecurityUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityUI.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/SecurityUI.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF3D2EC303D200758DFE /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF3E2EC303D200758DFE /* WatchKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchKit.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/WatchKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF3F2EC303D200758DFE /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/CoreBluetooth.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF402EC303D200758DFE /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/CryptoKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF412EC303D200758DFE /* XcodeKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XcodeKit.framework; path = Library/Frameworks/XcodeKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF422EC303D200758DFE /* CryptoTokenKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoTokenKit.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/CryptoTokenKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF432EC303D200758DFE /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF442EC303D200758DFE /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/WatchConnectivity.framework; sourceTree = DEVELOPER_DIR; };
+		FB45EF452EC303D200758DFE /* libswiftWatchKit.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libswiftWatchKit.tbd; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/usr/lib/swift/libswiftWatchKit.tbd; sourceTree = DEVELOPER_DIR; };
+		FB45EF462EC303E900758DFE /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.1.sdk/System/Library/Frameworks/AuthenticationServices.framework; sourceTree = DEVELOPER_DIR; };
 		FB525D532EBD272E0058DF45 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 		FB525D542EBD272E0058DF45 /* SecurityUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/SecurityUI.framework; sourceTree = DEVELOPER_DIR; };
 		FB525D552EBD272E0058DF45 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/SwiftUI.framework; sourceTree = DEVELOPER_DIR; };
@@ -153,26 +235,33 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FB525D502EBD241F0058DF45 /* Supabase in Frameworks */,
-				FB870B3D2EC063F200FD7DAA /* Algorithms in Frameworks */,
-				FB870B412EC0641E00FD7DAA /* PostgREST in Frameworks */,
-				FB870B3F2EC0640D00FD7DAA /* Auth in Frameworks */,
-				FB525D4E2EBD240E0058DF45 /* Algorithms in Frameworks */,
+				FB45EF132EC2EBC400758DFE /* Storage in Frameworks */,
 				FB525B152EBC74F30058DF45 /* (null) in Frameworks */,
-				FB525D4C2EBD24000058DF45 /* MSAL in Frameworks */,
+				FB45EF1B2EC2ED3100758DFE /* SecurityUI.framework in Frameworks */,
+				FB45EF1A2EC2EC2200758DFE /* CoreBluetooth.framework in Frameworks */,
 				FB525B142EBC74F30058DF45 /* (null) in Frameworks */,
 				FB525D5E2EBD275C0058DF45 /* UIKit.framework in Frameworks */,
+				FB45EF352EC302D500758DFE /* MobileCoreServices.framework in Frameworks */,
+				FB45EF1D2EC2ED3100758DFE /* UIKit.framework in Frameworks */,
+				FB45EF182EC2EC0900758DFE /* CoreBluetooth.framework in Frameworks */,
+				FB45EF282EC2ED3100758DFE /* CryptoKit.framework in Frameworks */,
+				FB45EF272EC2ED3100758DFE /* CoreNFC.framework in Frameworks */,
+				FB45EF0D2EC2EBC400758DFE /* Functions in Frameworks */,
+				FB45EF0F2EC2EBC400758DFE /* PostgREST in Frameworks */,
+				FB45EF192EC2EC0900758DFE /* CoreData.framework in Frameworks */,
+				FB45EF1C2EC2ED3100758DFE /* SwiftUI.framework in Frameworks */,
 				FB59A1CF2EC2DE9E00148604 /* UIKit.framework in Frameworks */,
-				FB525D4A2EBD23DC0058DF45 /* Storage in Frameworks */,
-				FB870B3B2EC063DA00FD7DAA /* Atomics in Frameworks */,
-				FB525D442EBD23DC0058DF45 /* Functions in Frameworks */,
-				FB525D482EBD23DC0058DF45 /* Realtime in Frameworks */,
-				FB525D522EBD24310058DF45 /* Atomics in Frameworks */,
+				FB45EF332EC302D300758DFE /* Security.framework in Frameworks */,
+				FB45EF2A2EC2ED3100758DFE /* CoreML.framework in Frameworks */,
 				FB525D602EBD28F10058DF45 /* SwiftUI.framework in Frameworks */,
 				FB525D5C2EBD275A0058DF45 /* SwiftUI.framework in Frameworks */,
+				FB45EF0B2EC2EBC400758DFE /* Auth in Frameworks */,
+				FB45EF2E2EC2F11800758DFE /* MSAL in Frameworks */,
 				FB525D592EBD27570058DF45 /* SecurityUI.framework in Frameworks */,
-				FB525D422EBD23DC0058DF45 /* Auth in Frameworks */,
-				FB525D462EBD23DC0058DF45 /* PostgREST in Frameworks */,
+				FB45EF112EC2EBC400758DFE /* Realtime in Frameworks */,
+				FB45EF292EC2ED3100758DFE /* CryptoTokenKit.framework in Frameworks */,
+				FB45EF152EC2EBC400758DFE /* Supabase in Frameworks */,
+				FB45EF312EC302D100758DFE /* SwiftData.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -194,10 +283,22 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FB45EF962EC307FE00758DFE /* MSAL in Frameworks */,
 				FB525D662EBD2A790058DF45 /* PostgREST in Frameworks */,
+				FB45EF602EC304A700758DFE /* SecurityUI.framework in Frameworks */,
+				FB45EF542EC3049800758DFE /* WorkoutKit.framework in Frameworks */,
 				FB525D642EBD2A790058DF45 /* Functions in Frameworks */,
 				FB525D622EBD2A790058DF45 /* Auth in Frameworks */,
+				FB45EF582EC3049D00758DFE /* WatchConnectivity.framework in Frameworks */,
+				FB45EF5E2EC304A600758DFE /* SwiftData.framework in Frameworks */,
+				FB45EF5A2EC304A100758DFE /* UIKit.framework in Frameworks */,
+				FB45EF932EC307D700758DFE /* XcodeKit.framework in Frameworks */,
+				FB45EF5C2EC304A400758DFE /* SwiftUI.framework in Frameworks */,
 				FB525D6A2EBD2A790058DF45 /* Storage in Frameworks */,
+				FB45EF662EC304AD00758DFE /* AuthenticationServices.framework in Frameworks */,
+				FB45EF562EC3049C00758DFE /* WatchKit.framework in Frameworks */,
+				FB45EF642EC304AB00758DFE /* MobileCoreServices.framework in Frameworks */,
+				FB45EF622EC304A900758DFE /* Security.framework in Frameworks */,
 				FB525D682EBD2A790058DF45 /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -222,6 +323,31 @@
 		FB525D322EBC7E7B0058DF45 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FB45EF462EC303E900758DFE /* AuthenticationServices.framework */,
+				FB45EF3F2EC303D200758DFE /* CoreBluetooth.framework */,
+				FB45EF232EC2ED3100758DFE /* CoreML.framework */,
+				FB45EF3B2EC303D200758DFE /* CoreML.framework */,
+				FB45EF402EC303D200758DFE /* CryptoKit.framework */,
+				FB45EF422EC303D200758DFE /* CryptoTokenKit.framework */,
+				FB45EF452EC303D200758DFE /* libswiftWatchKit.tbd */,
+				FB45EF3A2EC303D200758DFE /* MobileCoreServices.framework */,
+				FB45EF3D2EC303D200758DFE /* Security.framework */,
+				FB45EF3C2EC303D200758DFE /* SecurityUI.framework */,
+				FB45EF392EC303D200758DFE /* SwiftData.framework */,
+				FB45EF372EC303D200758DFE /* SwiftUI.framework */,
+				FB45EF432EC303D200758DFE /* UIKit.framework */,
+				FB45EF442EC303D200758DFE /* WatchConnectivity.framework */,
+				FB45EF3E2EC303D200758DFE /* WatchKit.framework */,
+				FB45EF382EC303D200758DFE /* WorkoutKit.framework */,
+				FB45EF412EC303D200758DFE /* XcodeKit.framework */,
+				FB45EF202EC2ED3100758DFE /* CoreNFC.framework */,
+				FB45EF212EC2ED3100758DFE /* CryptoKit.framework */,
+				FB45EF222EC2ED3100758DFE /* CryptoTokenKit.framework */,
+				FB45EF1E2EC2ED3100758DFE /* MobileCoreServices.framework */,
+				FB45EF1F2EC2ED3100758DFE /* Security.framework */,
+				FB45EF242EC2ED3100758DFE /* SwiftData.framework */,
+				FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */,
+				FB45EF172EC2EC0900758DFE /* CoreData.framework */,
 				FB525D542EBD272E0058DF45 /* SecurityUI.framework */,
 				FB525D552EBD272E0058DF45 /* SwiftUI.framework */,
 				FB525D532EBD272E0058DF45 /* UIKit.framework */,
@@ -279,12 +405,13 @@
 			);
 			name = CardiacID;
 			packageProductDependencies = (
-				FB525D4F2EBD241F0058DF45 /* Supabase */,
-				FB525D4B2EBD24000058DF45 /* MSAL */,
-				FB870B3A2EC063DA00FD7DAA /* Atomics */,
-				FB870B3C2EC063F200FD7DAA /* Algorithms */,
-				FB870B3E2EC0640D00FD7DAA /* Auth */,
-				FB870B402EC0641E00FD7DAA /* PostgREST */,
+				FB45EF0A2EC2EBC400758DFE /* Auth */,
+				FB45EF0C2EC2EBC400758DFE /* Functions */,
+				FB45EF0E2EC2EBC400758DFE /* PostgREST */,
+				FB45EF102EC2EBC400758DFE /* Realtime */,
+				FB45EF122EC2EBC400758DFE /* Storage */,
+				FB45EF142EC2EBC400758DFE /* Supabase */,
+				FB45EF2D2EC2F11800758DFE /* MSAL */,
 			);
 			productName = CardiacID;
 			productReference = FBF0C0992E70DF24005C425B /* CardiacID.app */;
@@ -343,6 +470,7 @@
 				FBF0C0B82E70DF25005C425B /* Sources */,
 				FBF0C0B92E70DF25005C425B /* Frameworks */,
 				FBF0C0BA2E70DF25005C425B /* Resources */,
+				FB45EF532EC3042700758DFE /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -358,6 +486,7 @@
 				FB525D652EBD2A790058DF45 /* PostgREST */,
 				FB525D672EBD2A790058DF45 /* Realtime */,
 				FB525D692EBD2A790058DF45 /* Storage */,
+				FB45EF952EC307FE00758DFE /* MSAL */,
 			);
 			productName = "CardiacID Watch App";
 			productReference = FBF0C0BC2E70DF25005C425B /* CardiacID Watch App.app */;
@@ -453,10 +582,8 @@
 			mainGroup = FBF0C0902E70DF23005C425B;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FB6A13F92E7A497100F3F65A /* XCRemoteSwiftPackageReference "swift-algorithms" */,
-				FB000MSAL2E73E424008E907A /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
-				FB525D352EBD0FD80058DF45 /* XCRemoteSwiftPackageReference "swift-atomics" */,
 				FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				FB45EF2C2EC2F11800758DFE /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FBF0C09A2E70DF24005C425B /* Products */;
@@ -713,12 +840,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "CardiacID Watch App/CardiacID Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PYGGR5786Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ARGOS.CardiacID;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -742,12 +873,16 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "CardiacID Watch App/CardiacID Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PYGGR5786Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
+				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ARGOS.CardiacID;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1059,20 +1194,12 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		FB000MSAL2E73E424008E907A /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */ = {
+		FB45EF2C2EC2F11800758DFE /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/AzureAD/microsoft-authentication-library-for-objc.git";
+			repositoryURL = "https://github.com/AzureAD/microsoft-authentication-library-for-objc";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 2.5.1;
-			};
-		};
-		FB525D352EBD0FD80058DF45 /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-atomics.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.3.0;
+				minimumVersion = 2.6.0;
 			};
 		};
 		FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
@@ -1083,61 +1210,48 @@
 				minimumVersion = 2.5.1;
 			};
 		};
-		FB6A13F92E7A497100F3F65A /* XCRemoteSwiftPackageReference "swift-algorithms" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-algorithms.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.2.1;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		FB525D412EBD23DC0058DF45 /* Auth */ = {
+		FB45EF0A2EC2EBC400758DFE /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Auth;
 		};
-		FB525D432EBD23DC0058DF45 /* Functions */ = {
+		FB45EF0C2EC2EBC400758DFE /* Functions */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Functions;
 		};
-		FB525D452EBD23DC0058DF45 /* PostgREST */ = {
+		FB45EF0E2EC2EBC400758DFE /* PostgREST */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = PostgREST;
 		};
-		FB525D472EBD23DC0058DF45 /* Realtime */ = {
+		FB45EF102EC2EBC400758DFE /* Realtime */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Realtime;
 		};
-		FB525D492EBD23DC0058DF45 /* Storage */ = {
+		FB45EF122EC2EBC400758DFE /* Storage */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Storage;
 		};
-		FB525D4B2EBD24000058DF45 /* MSAL */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB000MSAL2E73E424008E907A /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
-			productName = MSAL;
-		};
-		FB525D4D2EBD240E0058DF45 /* Algorithms */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB6A13F92E7A497100F3F65A /* XCRemoteSwiftPackageReference "swift-algorithms" */;
-			productName = Algorithms;
-		};
-		FB525D4F2EBD241F0058DF45 /* Supabase */ = {
+		FB45EF142EC2EBC400758DFE /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
 		};
-		FB525D512EBD24310058DF45 /* Atomics */ = {
+		FB45EF2D2EC2F11800758DFE /* MSAL */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = FB525D352EBD0FD80058DF45 /* XCRemoteSwiftPackageReference "swift-atomics" */;
-			productName = Atomics;
+			package = FB45EF2C2EC2F11800758DFE /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
+			productName = MSAL;
+		};
+		FB45EF952EC307FE00758DFE /* MSAL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB45EF2C2EC2F11800758DFE /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
+			productName = MSAL;
 		};
 		FB525D612EBD2A790058DF45 /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1163,26 +1277,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Storage;
-		};
-		FB870B3A2EC063DA00FD7DAA /* Atomics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D352EBD0FD80058DF45 /* XCRemoteSwiftPackageReference "swift-atomics" */;
-			productName = Atomics;
-		};
-		FB870B3C2EC063F200FD7DAA /* Algorithms */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB6A13F92E7A497100F3F65A /* XCRemoteSwiftPackageReference "swift-algorithms" */;
-			productName = Algorithms;
-		};
-		FB870B3E2EC0640D00FD7DAA /* Auth */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Auth;
-		};
-		FB870B402EC0641E00FD7DAA /* PostgREST */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = PostgREST;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

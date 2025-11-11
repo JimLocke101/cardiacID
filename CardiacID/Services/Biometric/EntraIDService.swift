@@ -1,5 +1,126 @@
 import Foundation
+import Foundation
 import Combine
+
+// MARK: - Service State Management Types
+
+/// Represents the current state of an external service or connector
+public enum ServiceState: String, CaseIterable {
+    case available = "available"
+    case connecting = "connecting"
+    case connected = "connected"
+    case hold = "hold"
+    case unavailable = "unavailable"
+    case error = "error"
+}
+
+/// Information about why a service is in hold state
+public struct HoldStateInfo {
+    let reason: String
+    let suggestedAction: String
+    let canRetry: Bool
+    let estimatedResolution: TimeInterval?
+    
+    static let missingCredentials = HoldStateInfo(
+        reason: "Missing authentication credentials",
+        suggestedAction: "Configure credentials in Settings",
+        canRetry: true,
+        estimatedResolution: nil
+    )
+    
+    static let networkUnavailable = HoldStateInfo(
+        reason: "Network connection unavailable",
+        suggestedAction: "Check internet connection",
+        canRetry: true,
+        estimatedResolution: 30
+    )
+    
+    static let serviceUnavailable = HoldStateInfo(
+        reason: "External service temporarily unavailable",
+        suggestedAction: "Service will retry automatically",
+        canRetry: false,
+        estimatedResolution: 60
+    )
+    
+    static let permissionsRequired = HoldStateInfo(
+        reason: "Required permissions not granted",
+        suggestedAction: "Grant permissions in Settings",
+        canRetry: true,
+        estimatedResolution: nil
+    )
+    
+    static let configurationRequired = HoldStateInfo(
+        reason: "Service configuration incomplete",
+        suggestedAction: "Complete setup in Settings",
+        canRetry: true,
+        estimatedResolution: nil
+    )
+}
+
+/// Protocol for services that can be put on hold
+@MainActor
+public protocol HoldableService: ObservableObject {
+    var serviceState: ServiceState { get }
+    var holdInfo: HoldStateInfo? { get }
+    var lastError: Error? { get }
+    
+    func putOnHold(reason: HoldStateInfo)
+    func resumeFromHold() async throws
+    func checkAvailability() async -> Bool
+}
+
+/// Mock Service State Manager
+@MainActor
+public class ServiceStateManager: ObservableObject {
+    public static let shared = ServiceStateManager()
+    
+    @Published public var services: [String: ServiceState] = [:]
+    @Published public var holdReasons: [String: HoldStateInfo] = [:]
+    
+    private init() {}
+    
+    public func registerService(_ serviceName: String, initialState: ServiceState = .available) {
+        services[serviceName] = initialState
+    }
+    
+    public func updateServiceState(_ serviceName: String, to state: ServiceState, holdInfo: HoldStateInfo? = nil) {
+        services[serviceName] = state
+        if let holdInfo = holdInfo {
+            holdReasons[serviceName] = holdInfo
+        } else {
+            holdReasons.removeValue(forKey: serviceName)
+        }
+    }
+    
+    public func getServiceStatus(_ serviceName: String) -> (state: ServiceState, holdInfo: HoldStateInfo?) {
+        let state = services[serviceName] ?? .unavailable
+        let holdInfo = holdReasons[serviceName]
+        return (state, holdInfo)
+    }
+    
+    public func getAllServicesInHold() -> [String: HoldStateInfo] {
+        return holdReasons
+    }
+    
+    // Pre-defined service names
+    public static let entraIDService = "EntraID Authentication"
+    public static let bluetoothService = "Bluetooth Connectivity"
+    public static let nfcService = "NFC Communication"
+    public static let healthKitService = "HealthKit Integration"
+    public static let supabaseService = "Supabase Backend"
+    public static let passwordlessService = "Passwordless Authentication"
+    public static let watchConnectivity = "Apple Watch Connectivity"
+    
+    public func setupDefaultServices() {
+        registerService(Self.entraIDService)
+        registerService(Self.bluetoothService)
+        registerService(Self.nfcService)
+        registerService(Self.healthKitService)
+        registerService(Self.supabaseService)
+        registerService(Self.passwordlessService)
+        registerService(Self.watchConnectivity)
+    }
+}
 
 /// Protocol defining EntraID authentication service capabilities
 /// Available in both DEMO_MODE and PRODUCTION_MODE
@@ -159,6 +280,7 @@ class MockEntraIDService: EntraIDService, HoldableService, ObservableObject {
 // MARK: - Factory Method
 /// Factory to create the appropriate EntraID service based on configuration
 class EntraIDServiceFactory {
+    @MainActor
     static func create() -> any EntraIDService {
         #if DEMO_MODE
         return MockEntraIDService()
