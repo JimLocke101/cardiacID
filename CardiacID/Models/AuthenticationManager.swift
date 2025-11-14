@@ -1,6 +1,7 @@
 import Foundation
 import HealthKit
 import Combine
+import UIKit
 
 // MARK: - Auth Event (using the one from SuprabaseService)
 

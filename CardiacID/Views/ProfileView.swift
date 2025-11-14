@@ -112,6 +112,7 @@ struct ProfileRow: View {
 }
 
 #Preview {
-    ProfileView()
-        .environmentObject(AuthViewModel())
+    let authViewModel = CardiacID.AuthViewModel()
+    return ProfileView()
+        .environmentObject(authViewModel)
 }

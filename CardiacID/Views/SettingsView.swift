@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var selectedSensitivity = 1
     @State private var dataRetentionDays = 30
     @State private var showingConfirmLogout = false
+    @State private var showingMenu = false
     @State private var isProcessing = false
     
     private let colors = HeartIDColors()
@@ -196,6 +197,16 @@ struct SettingsView: View {
         }
         .background(colors.background)
         .navigationTitle("Settings")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HamburgerMenuButton(showMenu: $showingMenu)
+            }
+        }
+        .sheet(isPresented: $showingMenu) {
+            MenuView(isPresented: $showingMenu)
+                .environmentObject(authViewModel)
+                .environmentObject(authManager)
+        }
         .alert(isPresented: $showingConfirmLogout) {
             Alert(
                 title: Text("Sign Out"),

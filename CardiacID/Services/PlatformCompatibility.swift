@@ -130,24 +130,24 @@ extension Platform: CustomStringConvertible {
 
 // MARK: - Device Status Helper
 
-public struct iPhoneDeviceStatus {
+public struct DeviceStatusInfo {
     public let batteryLevel: Double
     public let isCharging: Bool
     public let deviceName: String
     public let systemVersion: String
-    
-    public static var current: iPhoneDeviceStatus {
+
+    public static var current: DeviceStatusInfo {
         #if canImport(UIKit) && !os(watchOS)
         let device = UIDevice.current
         device.isBatteryMonitoringEnabled = true
-        return iPhoneDeviceStatus(
+        return DeviceStatusInfo(
             batteryLevel: Double(device.batteryLevel >= 0 ? device.batteryLevel : 0),
             isCharging: device.batteryState == .charging || device.batteryState == .full,
             deviceName: device.name,
             systemVersion: device.systemVersion
         )
         #else
-        return iPhoneDeviceStatus(
+        return DeviceStatusInfo(
             batteryLevel: 1.0,
             isCharging: false,
             deviceName: "Unknown Device",

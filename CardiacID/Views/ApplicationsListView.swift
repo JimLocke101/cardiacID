@@ -358,7 +358,7 @@ class ApplicationsListViewModel: ObservableObject {
 
         do {
             // Ensure we're authenticated
-            guard authClient.isAuthenticated else {
+            if !authClient.isAuthenticated {
                 // Try to sign in silently
                 let _ = try await authClient.signInSilently()
             }

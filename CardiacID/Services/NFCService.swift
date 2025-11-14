@@ -3,91 +3,8 @@ import CoreNFC
 import Combine
 import SwiftUI
 
-// MARK: - Device Management Types
-
-struct ManagedDevice: Identifiable {
-    let id = UUID()
-    let name: String
-    let type: DeviceType
-    let status: DeviceStatus
-    let lastSeen: Date?
-    let bluetoothLock: BluetoothLock?
-    let nfcTag: NFCTagData?
-    let capabilities: [DeviceCapability]
-    
-    init(
-        name: String,
-        type: DeviceType,
-        status: DeviceStatus,
-        bluetoothLock: BluetoothLock? = nil,
-        nfcTag: NFCTagData? = nil,
-        lastSeen: Date? = nil,
-        capabilities: [DeviceCapability] = []
-    ) {
-        self.name = name
-        self.type = type
-        self.status = status
-        self.lastSeen = lastSeen ?? Date()
-        self.bluetoothLock = bluetoothLock
-        self.nfcTag = nfcTag
-        self.capabilities = capabilities
-    }
-}
-
-enum DeviceType: String, CaseIterable {
-    case iPhone
-    case appleWatch
-    case bluetoothLock
-    case nfcReader
-    case enterpriseDevice
-}
-
-enum DeviceStatus: String, CaseIterable {
-    case discovered
-    case connecting
-    case connected
-    case disconnected
-    case error
-}
-
-enum DeviceCapability: CaseIterable {
-    case heartAuthentication
-    case biometricAuth
-    case networkAuth
-    case proximityAuth
-    case physicalAccess
-    case remoteControl
-    case nfcCommunication
-    case dataExchange
-    case dataSync
-    case remoteManagement
-}
-
-enum DeviceCommand {
-    case connect
-    case disconnect
-    case authenticate
-    case lock
-    case unlock
-    case status
-    case heartPattern
-}
-
-struct DeviceCommandResult {
-    let success: Bool
-    let deviceId: UUID
-    let command: DeviceCommand
-    let message: String?
-    let timestamp: Date
-    
-    init(success: Bool, deviceId: UUID, command: DeviceCommand, message: String? = nil) {
-        self.success = success
-        self.deviceId = deviceId
-        self.command = command
-        self.message = message
-        self.timestamp = Date()
-    }
-}
+// Use shared types from SharedTypes.swift
+// Removed duplicate type definitions
 
 // MARK: - Bluetooth Types
 
@@ -119,193 +36,10 @@ enum DoorLockCommand {
     case status
 }
 
-// MARK: - Bluetooth Door Lock Service
+// Removed duplicate BluetoothDoorLockService class - using the one from BluetoothDoorLockService.swift
 
-@MainActor
-class BluetoothDoorLockService: NSObject, ObservableObject {
-    @Published var discoveredLocks: [BluetoothLock] = []
-    @Published var connectedLocks: [BluetoothLock] = []
-    @Published var isScanning = false
-    @Published var errorMessage: String?
-    
-    private var centralManager: CBCentralManager?
-    private var scanTimer: Timer?
-    
-    var isBluetoothAvailable: Bool {
-        return centralManager?.state == .poweredOn
-    }
-    
-    override init() {
-        super.init()
-        centralManager = CBCentralManager(delegate: self, queue: nil)
-    }
-    
-    func startScanning() {
-        guard centralManager?.state == .poweredOn else {
-            errorMessage = "Bluetooth not available"
-            return
-        }
-        
-        isScanning = true
-        centralManager?.scanForPeripherals(withServices: nil, options: nil)
-        
-        // Stop scanning after 30 seconds
-        scanTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: false) { [weak self] _ in
-            self?.stopScanning()
-        }
-    }
-    
-    func stopScanning() {
-        centralManager?.stopScan()
-        isScanning = false
-        scanTimer?.invalidate()
-    }
-    
-    func connect(to lock: BluetoothLock) async throws {
-        // Mock implementation
-        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-        
-        if Bool.random() { // Simulate success/failure
-            lock.isConnected = true
-            if !connectedLocks.contains(where: { $0.id == lock.id }) {
-                connectedLocks.append(lock)
-            }
-        } else {
-            throw BluetoothError.connectionFailed
-        }
-    }
-    
-    func disconnect(from lock: BluetoothLock) async {
-        lock.isConnected = false
-        connectedLocks.removeAll { $0.id == lock.id }
-    }
-    
-    func sendCommand(_ command: DoorLockCommand, to lock: BluetoothLock) async throws -> Bool {
-        guard lock.isConnected else {
-            throw BluetoothError.notConnected
-        }
-        
-        // Simulate command execution
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
-        switch command {
-        case .lock:
-            lock.lockState = .locked
-        case .unlock:
-            lock.lockState = .unlocked
-        case .status:
-            // Just return current status
-            break
-        }
-        
-        return Bool.random() // Simulate success/failure
-    }
-}
-
-// MARK: - CBCentralManagerDelegate
-
-extension BluetoothDoorLockService: CBCentralManagerDelegate {
-    nonisolated func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        Task { @MainActor in
-            switch central.state {
-            case .poweredOn:
-                // Bluetooth is ready
-                break
-            case .poweredOff:
-                errorMessage = "Bluetooth is turned off"
-                stopScanning()
-            case .unauthorized:
-                errorMessage = "Bluetooth permission denied"
-            case .unsupported:
-                errorMessage = "Bluetooth not supported"
-            case .resetting:
-                errorMessage = "Bluetooth is resetting"
-            case .unknown:
-                errorMessage = "Bluetooth state unknown"
-            @unknown default:
-                errorMessage = "Unknown bluetooth state"
-            }
-        }
-    }
-    
-    nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        Task { @MainActor in
-            let lock = BluetoothLock(
-                name: peripheral.name ?? "Unknown Device",
-                identifier: peripheral.identifier.uuidString
-            )
-            
-            if !discoveredLocks.contains(where: { $0.identifier == lock.identifier }) {
-                discoveredLocks.append(lock)
-            }
-        }
-    }
-}
-
-enum BluetoothError: LocalizedError {
-    case notConnected
-    case connectionFailed
-    case commandFailed
-    case notAvailable
-    
-    var errorDescription: String? {
-        switch self {
-        case .notConnected:
-            return "Device not connected"
-        case .connectionFailed:
-            return "Failed to connect to device"
-        case .commandFailed:
-            return "Command failed"
-        case .notAvailable:
-            return "Bluetooth not available"
-        }
-    }
-}
-
-// MARK: - Technology Integration Types
-
-enum IntegrationStatus {
-    case disconnected
-    case connecting  
-    case connected
-    case error
-}
-
-struct IntegratedDevice: Identifiable, Codable {
-    let id: UUID
-    let name: String
-    let type: DeviceType
-    let status: ServiceState
-    
-    init(id: UUID = UUID(), name: String, type: DeviceType, status: ServiceState) {
-        self.id = id
-        self.name = name
-        self.type = type
-        self.status = status
-    }
-}
-
-enum TechnologyType: CaseIterable {
-    case bluetooth
-    case nfc
-    case entraID
-    case passwordless
-    case healthKit
-}
-
-struct TechnologyActivityEvent: Identifiable {
-    let id: UUID
-    let type: TechnologyType
-    let timestamp: Date
-    let description: String
-    
-    init(type: TechnologyType, description: String) {
-        self.id = UUID()
-        self.type = type
-        self.timestamp = Date()
-        self.description = description
-    }
-}
+// MARK: - Supporting Types for NFC only
+// TechnologyType, NFCTagData, NFCAuthResult now in SharedTypes.swift
 
 // MARK: - Service for NFC-based authentication
 @MainActor
@@ -422,7 +156,6 @@ class NFCService: NSObject, ObservableObject, HoldableService {
             success: Bool.random(),
             token: Bool.random() ? "mock-token" : nil,
             expiresAt: Date().addingTimeInterval(3600),
-            permissions: [.read, .authenticate],
             error: Bool.random() ? nil : "Authentication failed"
         )
     }
@@ -467,7 +200,7 @@ class NFCService: NSObject, ObservableObject, HoldableService {
             } catch {
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
-                    self.authenticationSubject.send(NFCAuthResult(success: false, token: nil, expiresAt: nil, permissions: [], error: error.localizedDescription))
+                    self.authenticationSubject.send(NFCAuthResult(success: false, token: nil, expiresAt: nil, error: error.localizedDescription))
                 }
             }
         }
@@ -495,7 +228,6 @@ class NFCService: NSObject, ObservableObject, HoldableService {
             success: success,
             token: token,
             expiresAt: success ? Date().addingTimeInterval(300) : nil, // 5 minutes
-            permissions: success ? [.read, .write, .authenticate] : [],
             error: success ? nil : "Authentication failed"
         )
     }
@@ -687,36 +419,13 @@ extension NFCService: NFCNDEFReaderSessionDelegate {
 }
 
 // MARK: - Supporting Types
-
-struct NFCTagData: Identifiable {
-    let id = UUID()
-    let type: NFCTagType
-    let data: Data
-    let timestamp: Date
-    let deviceId: String
-}
-
-enum NFCTagType {
-    case heartID
-    case ndef
-    case iso14443
-    case iso15693
-    case iso18092
-}
+// NFCTagData and NFCAuthResult now in SharedTypes.swift
 
 struct NFCAuthPayload {
     let heartPattern: Data
     let timestamp: Date
     let deviceId: String
     let nonce: Data
-}
-
-struct NFCAuthResult {
-    let success: Bool
-    let token: String?
-    let expiresAt: Date?
-    let permissions: [NFCPermission]
-    let error: String?
 }
 
 enum NFCPermission {

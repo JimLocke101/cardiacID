@@ -7,7 +7,7 @@ import CoreNFC
 /// Comprehensive technology management screen for EntraID, Active Directory, NFC, Bluetooth, and door locks
 struct TechnologyManagementView: View {
     // Services (credentials now loaded securely from Keychain)
-    @StateObject private var entraIDService = MockEntraIDService()
+    @StateObject private var entraIDService = EntraIDService()
     @StateObject private var bluetoothService = BluetoothDoorLockService()
     @StateObject private var nfcService = NFCService()
     @StateObject private var passwordlessService = PasswordlessAuthService()
@@ -21,6 +21,7 @@ struct TechnologyManagementView: View {
     @State private var selectedTab: TechnologyTab = .entraID
     @State private var showingSettings = false
     @State private var showingDeviceDetails = false
+    @State private var showingMenu = false
     @State private var selectedDevice: ManagedDevice?
     @State private var isScanning = false
     @State private var errorMessage: String?
@@ -50,17 +51,27 @@ struct TechnologyManagementView: View {
                     onDeviceSelected: { device in
                         selectedDevice = device
                         showingDeviceDetails = true
-                    }
+                    },
+                    showingApplicationsList: $showingApplicationsList
                 )
             }
             .background(colors.background)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    HamburgerMenuButton(showMenu: $showingMenu)
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showingSettings = true }) {
                         Image(systemName: "gearshape.fill")
                             .foregroundColor(colors.accent)
                     }
                 }
+            }
+            .sheet(isPresented: $showingMenu) {
+                MenuView(isPresented: $showingMenu)
+                    .environmentObject(AuthViewModel())
+                    .environmentObject(AuthenticationManager())
             }
             .sheet(isPresented: $showingSettings) {
                 TechnologySettingsView(
@@ -201,13 +212,14 @@ struct TabContentView: View {
     let deviceManagementService: DeviceManagementService
     let passwordlessService: PasswordlessAuthService
     let onDeviceSelected: (ManagedDevice) -> Void
+    @Binding var showingApplicationsList: Bool
     
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 switch selectedTab {
                 case .entraID:
-                    EntraIDManagementView(service: entraIDService)
+                    EntraIDManagementView(service: entraIDService, showingApplicationsList: $showingApplicationsList)
                 case .bluetooth:
                     BluetoothManagementView(
                         service: bluetoothService,
@@ -268,6 +280,7 @@ enum TechnologyTab: String, CaseIterable {
 // MARK: - EntraID Management View
 struct EntraIDManagementView: View {
     @ObservedObject var service: EntraIDService
+    @Binding var showingApplicationsList: Bool
     private let colors = HeartIDColors()
 
     var body: some View {
@@ -587,7 +600,7 @@ struct ConnectionStatusCard: View {
 }
 
 struct UserInfoCard: View {
-    let user: EntraIDUser
+    let user: EntraIDUserModel
     private let colors = HeartIDColors()
     
     var body: some View {
@@ -1140,10 +1153,14 @@ struct DeviceDetailView: View {
     
     private func deviceIcon(for type: DeviceType) -> String {
         switch type {
-        case .bluetoothDoorLock: return "lock.shield"
+        case .bluetoothDoorLock, .bluetoothLock: return "lock.shield"
         case .nfcTag: return "wave.3.right"
         case .appleWatch: return "applewatch"
         case .enterpriseDevice: return "building.2.crop.circle"
+        case .nfcReader: return "wave.3.forward"
+        case .heartIDDevice: return "heart.fill"
+        case .smartphone: return "iphone"
+        case .other: return "cube"
         }
     }
 }
@@ -1227,12 +1244,12 @@ struct DeviceStatusSection: View {
         .cornerRadius(12)
     }
     
-    private func statusColor(for status: iPhoneDeviceStatus) -> Color {
+    private func statusColor(for status: DeviceStatus) -> Color {
         let colors = HeartIDColors()
         switch status {
-        case .connected: return colors.success
+        case .active, .connected: return colors.success
         case .discovered: return colors.warning
-        case .disconnected: return colors.error
+        case .inactive, .disconnected: return colors.error
         case .error: return colors.error
         }
     }

@@ -3,8 +3,9 @@ import WatchConnectivity
 
 struct DeviceManagementView: View {
     @StateObject private var deviceManager = DeviceManager()
+    @State private var showingMenu = false
     private let colors = HeartIDColors()
-    
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -52,6 +53,16 @@ struct DeviceManagementView: View {
         }
         .background(colors.background)
         .navigationTitle("Devices")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HamburgerMenuButton(showMenu: $showingMenu)
+            }
+        }
+        .sheet(isPresented: $showingMenu) {
+            MenuView(isPresented: $showingMenu)
+                .environmentObject(AuthViewModel())
+                .environmentObject(AuthenticationManager())
+        }
     }
 }
 

@@ -2,36 +2,13 @@ import Foundation
 import Combine
 import CoreBluetooth
 import CoreNFC
+import Foundation
 
-// MARK: - Device Management Error Types
-
-enum DeviceManagementError: LocalizedError {
-    case deviceNotFound
-    case notAuthenticated
-    case connectionFailed
-    case commandFailed(String)
-    case unsupportedDevice
-    case networkError
-    
-    var errorDescription: String? {
-        switch self {
-        case .deviceNotFound:
-            return "Device not found"
-        case .notAuthenticated:
-            return "Authentication required"
-        case .connectionFailed:
-            return "Failed to connect to device"
-        case .commandFailed(let message):
-            return "Command failed: \(message)"
-        case .unsupportedDevice:
-            return "Device not supported"
-        case .networkError:
-            return "Network error"
-        }
-    }
-}
+// Use shared types to avoid redeclaration
+// All types are now in SharedTypes.swift
 
 /// Comprehensive device management service for controlling all connected devices
+@MainActor
 class DeviceManagementService: NSObject, ObservableObject {
     @Published var connectedDevices: [ManagedDevice] = []
     @Published var availableDevices: [ManagedDevice] = []
@@ -42,7 +19,7 @@ class DeviceManagementService: NSObject, ObservableObject {
     // Services
     private let bluetoothService = BluetoothDoorLockService()
     private let nfcService = NFCService()
-    private let entraIDService: any EntraIDService
+    private let entraIDService: EntraIDService
     private let passwordlessService = PasswordlessAuthService()
     private let encryptionService = EncryptionService.shared
     private let keychain = KeychainService.shared
@@ -59,7 +36,7 @@ class DeviceManagementService: NSObject, ObservableObject {
         commandResultSubject.eraseToAnyPublisher()
     }
     
-    init(entraIDService: any EntraIDService) {
+    init(entraIDService: EntraIDService) {
         self.entraIDService = entraIDService
         super.init()
         setupServices()
@@ -226,7 +203,7 @@ class DeviceManagementService: NSObject, ObservableObject {
     
     private func performConnection(_ device: ManagedDevice) async throws -> DeviceCommandResult {
         switch device.type {
-        case .bluetoothDoorLock:
+        case .bluetoothDoorLock, .bluetoothLock:
             if let bluetoothLock = device.bluetoothLock {
                 bluetoothService.connectToLock(bluetoothLock)
                 return DeviceCommandResult(success: true, deviceId: device.id, command: .connect)
@@ -244,14 +221,16 @@ class DeviceManagementService: NSObject, ObservableObject {
                 throw DeviceManagementError.notAuthenticated
             }
             return DeviceCommandResult(success: true, deviceId: device.id, command: .connect)
+        default:
+            throw DeviceManagementError.unsupportedDevice
         }
-        
+
         throw DeviceManagementError.unsupportedDevice
     }
     
     private func performDisconnection(_ device: ManagedDevice) async throws -> DeviceCommandResult {
         switch device.type {
-        case .bluetoothDoorLock:
+        case .bluetoothDoorLock, .bluetoothLock:
             if let bluetoothLock = device.bluetoothLock {
                 bluetoothService.disconnectFromLock(bluetoothLock)
                 return DeviceCommandResult(success: true, deviceId: device.id, command: .disconnect)
@@ -265,8 +244,10 @@ class DeviceManagementService: NSObject, ObservableObject {
         case .enterpriseDevice:
             // Enterprise device disconnection
             return DeviceCommandResult(success: true, deviceId: device.id, command: .disconnect)
+        default:
+            throw DeviceManagementError.unsupportedDevice
         }
-        
+
         throw DeviceManagementError.unsupportedDevice
     }
     
@@ -285,7 +266,7 @@ class DeviceManagementService: NSObject, ObservableObject {
         
         // Execute command based on device type
         switch device.type {
-        case .bluetoothDoorLock:
+        case .bluetoothDoorLock, .bluetoothLock:
             return try await executeBluetoothCommand(command, on: device, with: heartPattern)
         case .nfcTag:
             return try await executeNFCCommand(command, on: device, with: heartPattern)
@@ -293,6 +274,8 @@ class DeviceManagementService: NSObject, ObservableObject {
             return try await executeWatchCommand(command, on: device, with: heartPattern)
         case .enterpriseDevice:
             return try await executeEnterpriseCommand(command, on: device, with: heartPattern)
+        default:
+            throw DeviceManagementError.unsupportedDevice
         }
     }
     
@@ -376,48 +359,50 @@ class DeviceManagementService: NSObject, ObservableObject {
     }
     
     // MARK: - Device Updates
-    
+
     private func updateAvailableDevices() {
-        var devices: [ManagedDevice] = []
-        
-        // Add Bluetooth door locks
-        for lock in bluetoothService.discoveredLocks {
+        Task { @MainActor in
+            var devices: [ManagedDevice] = []
+
+            // Add Bluetooth door locks
+            for lock in bluetoothService.discoveredLocks {
+                devices.append(ManagedDevice(
+                    name: lock.name,
+                    type: DeviceType.bluetoothLock,
+                    status: DeviceStatus.discovered,
+                    bluetoothLock: lock
+                ))
+            }
+
+            // Add NFC tags
+            if let nfcTag = nfcService.lastScannedTag {
+                devices.append(ManagedDevice(
+                    name: "NFC Tag",
+                    type: DeviceType.nfcReader,
+                    status: DeviceStatus.discovered,
+                    nfcTag: nfcTag
+                ))
+            }
+
+            // Add Apple Watch
             devices.append(ManagedDevice(
-                name: lock.name,
-                type: DeviceType.bluetoothLock,
-                status: DeviceStatus.discovered,
-                bluetoothLock: lock
-            ))
-        }
-        
-        // Add NFC tags
-        if let nfcTag = nfcService.lastScannedTag {
-            devices.append(ManagedDevice(
-                name: "NFC Tag",
-                type: DeviceType.nfcReader,
-                status: DeviceStatus.discovered,
-                nfcTag: nfcTag
-            ))
-        }
-        
-        // Add Apple Watch
-        devices.append(ManagedDevice(
-            name: "Apple Watch",
-            type: DeviceType.appleWatch,
-            status: DeviceStatus.discovered
-        ))
-        
-        // Add enterprise devices
-        let isAuthenticated = await entraIDService.checkAuthenticationStatus()
-        if isAuthenticated {
-            devices.append(ManagedDevice(
-                name: "Enterprise Device",
-                type: DeviceType.enterpriseDevice,
+                name: "Apple Watch",
+                type: DeviceType.appleWatch,
                 status: DeviceStatus.discovered
             ))
+
+            // Add enterprise devices
+            let isAuthenticated = await entraIDService.checkAuthenticationStatus()
+            if isAuthenticated {
+                devices.append(ManagedDevice(
+                    name: "Enterprise Device",
+                    type: DeviceType.enterpriseDevice,
+                    status: DeviceStatus.discovered
+                ))
+            }
+
+            availableDevices = devices
         }
-        
-        availableDevices = devices
     }
     
     private func updateConnectedDevices() {
@@ -453,7 +438,7 @@ class DeviceManagementService: NSObject, ObservableObject {
         }
     }
     
-    private func syncEnterpriseDevices() {
+    private func syncEnterpriseDevices() async {
         // Sync enterprise devices from Entra ID
         // This would fetch devices from the enterprise directory
         updateAvailableDevices()
@@ -483,155 +468,4 @@ class DeviceManagementService: NSObject, ObservableObject {
     }
 }
 
-// MARK: - Supporting Types
-
-struct ManagedDevice: Codable, Identifiable {
-    let id: UUID
-    let name: String
-    let type: DeviceType
-    let status: DeviceStatus
-    let bluetoothLock: BluetoothDoorLock?
-    let nfcTag: NFCTagData?
-    let lastSeen: Date?
-    let capabilities: [DeviceCapability]
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name, type, status, lastSeen, capabilities
-    }
-    
-    init(id: UUID = UUID(), name: String, type: DeviceType, status: DeviceStatus, bluetoothLock: BluetoothDoorLock? = nil, nfcTag: NFCTagData? = nil, lastSeen: Date? = nil, capabilities: [DeviceCapability] = []) {
-        self.id = id
-        self.name = name
-        self.type = type
-        self.status = status
-        self.bluetoothLock = bluetoothLock
-        self.nfcTag = nfcTag
-        self.lastSeen = lastSeen
-        self.capabilities = capabilities
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        type = try container.decode(DeviceType.self, forKey: .type)
-        status = try container.decode(DeviceStatus.self, forKey: .status)
-        lastSeen = try container.decodeIfPresent(Date.self, forKey: .lastSeen)
-        capabilities = try container.decodeIfPresent([DeviceCapability].self, forKey: .capabilities) ?? []
-        bluetoothLock = nil
-        nfcTag = nil
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(name, forKey: .name)
-        try container.encode(type, forKey: .type)
-        try container.encode(status, forKey: .status)
-        try container.encodeIfPresent(lastSeen, forKey: .lastSeen)
-        try container.encode(capabilities, forKey: .capabilities)
-    }
-}
-
-enum DeviceType: String, Codable, CaseIterable {
-    case bluetoothDoorLock = "bluetooth_door_lock"
-    case nfcTag = "nfc_tag"
-    case appleWatch = "apple_watch"
-    case enterpriseDevice = "enterprise_device"
-}
-
-enum DeviceCapability: String, Codable, CaseIterable {
-    case unlock = "unlock"
-    case lock = "lock"
-    case read = "read"
-    case write = "write"
-    case authenticate = "authenticate"
-    case status = "status"
-    case battery = "battery"
-}
-
-enum DeviceCommand: String, Codable, CaseIterable {
-    case connect = "connect"
-    case disconnect = "disconnect"
-    case unlock = "unlock"
-    case lock = "lock"
-    case read = "read"
-    case write = "write"
-    case authenticate = "authenticate"
-    case status = "status"
-    case battery = "battery"
-    
-    var requiresAuthentication: Bool {
-        switch self {
-        case .unlock, .write, .authenticate:
-            return true
-        default:
-            return false
-        }
-    }
-}
-
-enum DeviceUpdate {
-    case connected(ManagedDevice)
-    case disconnected(ManagedDevice)
-    case statusChanged(ManagedDevice, DeviceStatus)
-    case error(ManagedDevice, String)
-}
-
-struct DeviceCommandResult {
-    let success: Bool
-    let deviceId: UUID
-    let command: DeviceCommand
-    let error: String?
-    let data: Data?
-    
-    init(success: Bool, deviceId: UUID, command: DeviceCommand, error: String? = nil, data: Data? = nil) {
-        self.success = success
-        self.deviceId = deviceId
-        self.command = command
-        self.error = error
-        self.data = data
-    }
-}
-
-struct DeviceAuthResult {
-    let success: Bool
-    let deviceId: UUID
-    let token: String?
-    let expiresAt: Date?
-}
-
-enum DeviceManagementError: Error, LocalizedError {
-    case notAuthenticated
-    case authenticationRequired
-    case authenticationFailed
-    case unsupportedDevice
-    case unsupportedCommand
-    case invalidDevice
-    case connectionFailed
-    case commandFailed
-    case unknown
-    
-    var errorDescription: String? {
-        switch self {
-        case .notAuthenticated:
-            return "Not authenticated with enterprise"
-        case .authenticationRequired:
-            return "Authentication required for this command"
-        case .authenticationFailed:
-            return "Authentication failed"
-        case .unsupportedDevice:
-            return "Unsupported device type"
-        case .unsupportedCommand:
-            return "Unsupported command for this device"
-        case .invalidDevice:
-            return "Invalid device"
-        case .connectionFailed:
-            return "Failed to connect to device"
-        case .commandFailed:
-            return "Command failed to execute"
-        case .unknown:
-            return "Unknown error"
-        }
-    }
-}
+// NOTE: All types now use definitions from SharedTypes.swift to avoid ambiguous type lookup errors

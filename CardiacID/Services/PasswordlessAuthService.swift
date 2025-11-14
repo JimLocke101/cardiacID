@@ -4,59 +4,8 @@ import CryptoKit
 import LocalAuthentication
 import CoreNFC
 
-// MARK: - Passwordless Authentication Types
-
-struct PasswordlessMethod {
-    let type: PasswordlessMethodType
-    let name: String
-    let isAvailable: Bool
-    let isEnrolled: Bool
-    
-    init(type: PasswordlessMethodType, name: String, isAvailable: Bool = true, isEnrolled: Bool = false) {
-        self.type = type
-        self.name = name
-        self.isAvailable = isAvailable
-        self.isEnrolled = isEnrolled
-    }
-}
-
-enum PasswordlessMethodType {
-    case biometric
-    case heartPattern
-    case nfc
-    case fido2
-    case webauthn
-}
-
-struct PasswordlessAuthResult {
-    let success: Bool
-    let method: PasswordlessMethodType
-    let token: String?
-    let expiresAt: Date?
-    let error: String?
-}
-
-struct PasswordlessEnrollmentResult {
-    let success: Bool
-    let method: PasswordlessMethodType
-    let publicKey: String?
-    let credentialId: String?
-    let error: String?
-}
-
-struct HeartPattern: Codable {
-    let id: UUID
-    let data: Data
-    let timestamp: Date
-    let userId: String
-    
-    init(data: Data, userId: String) {
-        self.id = UUID()
-        self.data = data
-        self.timestamp = Date()
-        self.userId = userId
-    }
-}
+// Use shared types from SharedTypes.swift
+// Removed duplicate type definitions
 
 /// Service for enhanced passwordless authentication protocols (FIDO2, WebAuthn, etc.)
 @MainActor
@@ -530,34 +479,8 @@ class PasswordlessAuthService: NSObject, ObservableObject, HoldableService {
 }
 
 // MARK: - Supporting Types
-
-struct PasswordlessMethod: Identifiable, Codable {
-    let id = UUID()
-    let type: PasswordlessMethodType
-    let name: String
-    let isAvailable: Bool
-    let isEnrolled: Bool
-}
-
-enum PasswordlessMethodType: String, Codable, CaseIterable {
-    case biometric = "biometric"
-    case fido2 = "fido2"
-    case nfc = "nfc"
-    case bluetooth = "bluetooth"
-    case heartID = "heart_id"
-}
-
-struct PasswordlessAuthResult {
-    let success: Bool
-    let method: PasswordlessMethod
-    let error: String?
-}
-
-struct PasswordlessEnrollmentResult {
-    let success: Bool
-    let method: PasswordlessMethod
-    let error: String?
-}
+// Note: PasswordlessMethod, PasswordlessMethodType, PasswordlessAuthResult, and
+// PasswordlessEnrollmentResult are defined in SharedTypes.swift to avoid duplication
 
 struct FIDO2KeyPair {
     let privateKey: Data

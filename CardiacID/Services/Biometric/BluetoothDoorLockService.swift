@@ -3,6 +3,7 @@ import CoreBluetooth
 import Combine
 
 /// Service for managing Bluetooth door locks and access control
+@MainActor
 class BluetoothDoorLockService: NSObject, ObservableObject {
     
     // Compatibility API expected by the rest of the app
@@ -471,28 +472,7 @@ struct BluetoothDevice: Identifiable, Hashable {
     }
 }
 
-enum BluetoothError: Error, LocalizedError {
-    case bluetoothUnavailable
-    case notConnected
-    case authenticationFailed
-    case invalidDevice
-    case transmissionFailed
-    
-    var errorDescription: String? {
-        switch self {
-        case .bluetoothUnavailable:
-            return "Bluetooth is not available on this device"
-        case .notConnected:
-            return "Not connected to any device"
-        case .authenticationFailed:
-            return "Heart pattern authentication failed"
-        case .invalidDevice:
-            return "Invalid or unsupported device"
-        case .transmissionFailed:
-            return "Failed to transmit data to device"
-        }
-    }
-}
+// BluetoothError now in SharedTypes.swift
 
 // MARK: - Mock Heart Authentication Service
 

@@ -6,6 +6,7 @@ import HealthKit
 import SwiftUI
 
 /// Comprehensive service for integrating and managing all Heart ID technologies
+@MainActor
 class TechnologyIntegrationService: NSObject, ObservableObject {
     // MARK: - Published Properties
     @Published var isInitialized = false
@@ -17,7 +18,7 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     @Published var lastActivity: TechnologyActivityEvent?
     
     // MARK: - Services
-    private let entraIDService: any EntraIDService
+    private let entraIDService: EntraIDService
     private let bluetoothService: BluetoothDoorLockService
     private let nfcService: NFCService
     private let deviceManagementService: DeviceManagementService
@@ -31,7 +32,7 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     private var deviceCapabilities: [UUID: Set<DeviceCapability>] = [:]
     
     // MARK: - Initialization
-    init(entraIDService: any EntraIDService) {
+    init(entraIDService: EntraIDService) {
         self.entraIDService = entraIDService
         self.bluetoothService = BluetoothDoorLockService()
         self.nfcService = NFCService()
@@ -178,9 +179,9 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     /// Connect to a specific device
     func connectToDevice(_ device: IntegratedDevice) async throws {
         logActivity(.connectionAttempt, "Attempting to connect to \(device.name)")
-        
+
         switch device.type {
-        case .bluetoothDoorLock:
+        case .bluetoothDoorLock, .bluetoothLock:
             if let bluetoothLock = device.bluetoothLock {
                 bluetoothService.connectToLock(bluetoothLock)
             }
@@ -195,8 +196,11 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
             guard entraIDService.isAuthenticated else {
                 throw IntegrationError.notAuthenticated
             }
+        default:
+            // Other device types don't require special connection handling
+            break
         }
-        
+
         // Update device status
         updateConnectedDevices()
         logActivity(.deviceConnected, "Connected to \(device.name)")
@@ -205,17 +209,20 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
     /// Disconnect from a specific device
     func disconnectFromDevice(_ device: IntegratedDevice) async throws {
         logActivity(.disconnectionAttempt, "Attempting to disconnect from \(device.name)")
-        
+
         switch device.type {
-        case .bluetoothDoorLock:
+        case .bluetoothDoorLock, .bluetoothLock:
             if let bluetoothLock = device.bluetoothLock {
                 bluetoothService.disconnectFromLock(bluetoothLock)
             }
         case .nfcTag, .appleWatch, .enterpriseDevice:
             // These connections are handled automatically
             break
+        default:
+            // Other device types don't require special disconnection handling
+            break
         }
-        
+
         updateConnectedDevices()
         logActivity(.deviceDisconnected, "Disconnected from \(device.name)")
     }
@@ -238,7 +245,7 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
         
         // Execute command based on device type
         switch device.type {
-        case .bluetoothDoorLock:
+        case .bluetoothDoorLock, .bluetoothLock:
             try await executeBluetoothCommand(command, on: device, with: heartPattern)
         case .nfcTag:
             try await executeNFCCommand(command, on: device, with: heartPattern)
@@ -246,8 +253,10 @@ class TechnologyIntegrationService: NSObject, ObservableObject {
             try await executeWatchCommand(command, on: device, with: heartPattern)
         case .enterpriseDevice:
             try await executeEnterpriseCommand(command, on: device, with: heartPattern)
+        default:
+            throw IntegrationError.unsupportedDevice
         }
-        
+
         logActivity(.commandCompleted, "Completed \(command.rawValue) on \(device.name)")
     }
     
@@ -552,14 +561,8 @@ enum IntegrationStatus {
     }
 }
 
-enum TechnologyType: String, CaseIterable, Codable {
-    case bluetooth = "Bluetooth"
-    case nfc = "NFC"
-    case entraID = "EntraID"
-    case healthKit = "HealthKit"
-    case appleWatch = "Apple Watch"
-    case enterprise = "Enterprise"
-}
+// TechnologyType now uses the one from SharedTypes.swift
+// Note: This file extends it with additional cases specific to integration
 
 struct IntegratedDevice: Identifiable, Codable {
     let id: UUID
@@ -606,6 +609,7 @@ enum ActivityType: String, CaseIterable, Codable {
     case error
 }
 
+// TechnologyActivityEvent is defined locally here (service-specific)
 struct TechnologyActivityEvent: Identifiable, Codable {
     let id: UUID
     let type: ActivityType
@@ -621,10 +625,11 @@ enum IntegrationError: Error, LocalizedError {
     case patternNotFound
     case encryptionFailed
     case invalidDevice
+    case unsupportedDevice
     case unsupportedCommand
     case connectionFailed
     case commandFailed
-    
+
     var errorDescription: String? {
         switch self {
         case .notAuthenticated: return "Not authenticated with enterprise"
@@ -633,6 +638,7 @@ enum IntegrationError: Error, LocalizedError {
         case .patternNotFound: return "Heart pattern not found for device"
         case .encryptionFailed: return "Encryption failed"
         case .invalidDevice: return "Invalid device"
+        case .unsupportedDevice: return "Unsupported device type"
         case .unsupportedCommand: return "Unsupported command for this device"
         case .connectionFailed: return "Failed to connect to device"
         case .commandFailed: return "Command failed to execute"

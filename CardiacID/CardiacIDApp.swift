@@ -38,22 +38,45 @@ struct CardiacIDApp: App {
                             .environmentObject(watchConnectivity)
                             .transition(.opacity)
                     } else {
-                        // Login screen
-                        LoginView()
-                            .environmentObject(authViewModel)
-                            .transition(.opacity)
+                        // Auth screen - shows SignUp or Login based on initial flow
+                        Group {
+                            if authViewModel.initialFlow == .signUp {
+                                SignUpView()
+                                    .environmentObject(authViewModel)
+                                    .transition(.move(edge: .trailing))
+                            } else {
+                                LoginView()
+                                    .environmentObject(authViewModel)
+                                    .transition(.move(edge: .leading))
+                            }
+                        }
                     }
                 }
                 
                 // Launch screen overlay - shown during loading
                 if isShowingLaunchScreen {
-                    LaunchScreen()
-                        .transition(.opacity)
-                        .zIndex(2)
+                    LaunchScreen { shouldShowSignUp in
+                        // Handle the user choice from launch screen
+                        if shouldShowSignUp {
+                            // Direct new users to sign up flow
+                            authViewModel.setInitialFlow(.signUp)
+                        } else {
+                            // Existing users go to sign in
+                            authViewModel.setInitialFlow(.signIn)
+                        }
+                        
+                        // Dismiss launch screen
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            isShowingLaunchScreen = false
+                        }
+                    }
+                    .transition(.opacity)
+                    .zIndex(2)
                 }
             }
             .animation(.easeInOut(duration: 0.5), value: authViewModel.isAuthenticated)
             .animation(.easeInOut(duration: 0.5), value: isShowingLaunchScreen)
+            .animation(.easeInOut(duration: 0.3), value: authViewModel.initialFlow)
             .onAppear {
                 debugLog.info("HeartID Mobile app launched")
                 
@@ -105,16 +128,8 @@ struct CardiacIDApp: App {
                 debugLog.info("App initialization completed")
             }
             
-            // Keep launch screen visible for minimum duration
-            try? await Task.sleep(nanoseconds: 3_500_000_000) // 3.5 seconds
-            
-            // Dismiss launch screen
-            await MainActor.run {
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    isShowingLaunchScreen = false
-                }
-                debugLog.info("Launch screen dismissed")
-            }
+            // Note: Launch screen dismissal is now handled by user interaction
+            // The launch screen will dismiss itself after user makes a choice
         }
     }
     

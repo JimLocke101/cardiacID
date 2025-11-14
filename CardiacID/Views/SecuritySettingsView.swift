@@ -1,21 +1,7 @@
 import SwiftUI
 import Combine
 
-// MARK: - Supporting Types
-
-struct AuthEvent {
-    let eventType: EventType
-    let timestamp: Date
-    let success: Bool
-    let device: String?
-    let location: String?
-    
-    enum EventType {
-        case authentication
-        case enrollment
-        case revocation
-    }
-}
+// AuthEvent now uses the one from Models/AuthEvent.swift
 
 struct SecuritySettingsView: View {
     // Environment objects
@@ -260,11 +246,17 @@ struct SecurityLogItem: View {
     var eventDescription: String {
         let action: String
         switch event.eventType {
-        case .authentication: action = "Authentication"
+        case .authentication, .biometricAuth, .passwordAuth: action = "Authentication"
         case .enrollment: action = "Enrollment"
         case .revocation: action = "Revocation"
+        case .signIn: action = "Sign In"
+        case .signOut: action = "Sign Out"
+        case .tokenRefresh: action = "Token Refresh"
+        case .failedAttempt: action = "Failed Attempt"
+        case .accountLocked: action = "Account Locked"
+        case .passwordReset: action = "Password Reset"
         }
-        
+
         return "\(action) \(event.success ? "successful" : "failed")"
     }
 }
@@ -275,37 +267,4 @@ struct SecurityLogItem: View {
     }
 }
 
-// MARK: - Mock Supabase Service
-
-class SupabaseService: ObservableObject {
-    static let shared = SupabaseService()
-    
-    private init() {}
-    
-    func getRecentAuthEvents(limit: Int) async throws -> [AuthEvent] {
-        // Mock events
-        return [
-            AuthEvent(
-                eventType: .authentication,
-                timestamp: Date().addingTimeInterval(-3600),
-                success: true,
-                device: "iPhone 15",
-                location: "Office"
-            ),
-            AuthEvent(
-                eventType: .enrollment,
-                timestamp: Date().addingTimeInterval(-7200),
-                success: true,
-                device: "Apple Watch",
-                location: "Home"
-            ),
-            AuthEvent(
-                eventType: .authentication,
-                timestamp: Date().addingTimeInterval(-10800),
-                success: false,
-                device: "iPad",
-                location: "Unknown"
-            )
-        ]
-    }
-}
+// SupabaseService now uses AppSupabaseClient.shared (the real implementation)

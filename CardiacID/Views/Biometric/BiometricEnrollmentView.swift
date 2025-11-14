@@ -460,24 +460,53 @@ struct FeatureRow: View {
     let icon: String
     let title: String
     let description: String
+    
+    // Optional color customization - defaults to BiometricEnrollmentView style
+    let iconColor: Color
+    let backgroundColor: Color
+    let titleColor: Color
+    let descriptionColor: Color
+    
+    // Default initializer for BiometricEnrollmentView compatibility
+    init(icon: String, title: String, description: String) {
+        self.icon = icon
+        self.title = title
+        self.description = description
+        self.iconColor = Color(hex: "e94560")
+        self.backgroundColor = Color(hex: "e94560").opacity(0.2)
+        self.titleColor = .white
+        self.descriptionColor = .white.opacity(0.6)
+    }
+    
+    // Custom initializer for LaunchScreen compatibility
+    init(icon: String, title: String, description: String, 
+         iconColor: Color, backgroundColor: Color, titleColor: Color, descriptionColor: Color) {
+        self.icon = icon
+        self.title = title
+        self.description = description
+        self.iconColor = iconColor
+        self.backgroundColor = backgroundColor
+        self.titleColor = titleColor
+        self.descriptionColor = descriptionColor
+    }
 
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.system(size: 24))
-                .foregroundColor(Color(hex: "e94560"))
+                .foregroundColor(iconColor)
                 .frame(width: 44, height: 44)
-                .background(Color(hex: "e94560").opacity(0.2))
+                .background(backgroundColor)
                 .cornerRadius(12)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(titleColor)
 
                 Text(description)
                     .font(.system(size: 15, weight: .regular))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(descriptionColor)
             }
 
             Spacer()

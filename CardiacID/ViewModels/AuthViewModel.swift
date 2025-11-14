@@ -9,6 +9,13 @@ class AuthViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var authError: String?
     @Published var isLoading = false
+    @Published var initialFlow: AuthFlow = .signIn
+    @Published var shouldShowWatchSetup = false // New flag for Apple Watch setup
+
+    enum AuthFlow {
+        case signIn
+        case signUp
+    }
     
     // References to services
     private let supabaseService = SupabaseService.shared
@@ -101,6 +108,8 @@ class AuthViewModel: ObservableObject {
             }, receiveValue: { [weak self] user in
                 self?.currentUser = user
                 self?.isAuthenticated = true
+                // Show Apple Watch setup for new registrations
+                self?.shouldShowWatchSetup = true
             })
             .store(in: &cancellables)
     }
@@ -141,5 +150,10 @@ class AuthViewModel: ObservableObject {
                 // The currentUser will be updated via the publisher
             })
             .store(in: &cancellables)
+    }
+
+    /// Set the initial flow based on launch screen selection
+    func setInitialFlow(_ flow: AuthFlow) {
+        self.initialFlow = flow
     }
 }

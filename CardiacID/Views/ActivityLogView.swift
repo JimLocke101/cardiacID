@@ -133,7 +133,8 @@ class ActivityViewModel: ObservableObject {
 struct ActivityLogView: View {
     @StateObject private var viewModel = ActivityViewModel()
     @State private var showFilters = false
-    
+    @State private var showingMenu = false
+
     // Color scheme
     private let colors = HeartIDColors()
     
@@ -155,6 +156,7 @@ struct ActivityLogView: View {
         }
         .navigationTitle("Activity Log")
         .navigationBarItems(
+            leading: HamburgerMenuButton(showMenu: $showingMenu),
             trailing: Button(action: {
                 showFilters.toggle()
             }) {
@@ -164,6 +166,11 @@ struct ActivityLogView: View {
         )
         .sheet(isPresented: $showFilters) {
             filterView
+        }
+        .sheet(isPresented: $showingMenu) {
+            MenuView(isPresented: $showingMenu)
+                .environmentObject(AuthViewModel())
+                .environmentObject(AuthenticationManager())
         }
     }
     

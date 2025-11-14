@@ -28,6 +28,9 @@ struct AuthEvent: Identifiable, Codable {
         case failedAttempt = "failed_attempt"
         case accountLocked = "account_locked"
         case passwordReset = "password_reset"
+        case authentication = "authentication"
+        case enrollment = "enrollment"
+        case revocation = "revocation"
     }
 
     init(

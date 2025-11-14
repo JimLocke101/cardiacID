@@ -8,8 +8,9 @@ struct LoginView: View {
     @State private var errorMessage: String?
     @State private var showError = false
     @State private var isAuthenticated = false
-    
-    @StateObject private var authViewModel = AuthViewModel()
+    @State private var showingSignUp = false
+
+    @EnvironmentObject private var authViewModel: AuthViewModel
     private let colors = HeartIDColors()
     
     var body: some View {
@@ -20,23 +21,48 @@ struct LoginView: View {
                     .ignoresSafeArea()
                 
                 VStack(spacing: 30) {
-                    // Logo/Header
+                    // Logo/Header with Apple Watch integration message
                     VStack(spacing: 16) {
-                        Image(systemName: "heart.fill")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 60, height: 60)
-                            .foregroundColor(colors.accent)
+                        // Heart and Watch icon combination
+                        ZStack {
+                            Image(systemName: "heart.fill")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 60, height: 60)
+                                .foregroundColor(colors.accent)
+                            
+                            Image(systemName: "applewatch")
+                                .font(.system(size: 20))
+                                .foregroundColor(colors.accent)
+                                .offset(x: 25, y: -25)
+                                .background(
+                                    Circle()
+                                        .fill(colors.background)
+                                        .frame(width: 30, height: 30)
+                                )
+                        }
                         
                         Text("HeartID")
                             .font(.system(size: 36, weight: .bold))
                             .foregroundColor(colors.text)
                         
-                        Text("Secure your identity with your unique cardiac signature")
-                            .font(.subheadline)
-                            .foregroundColor(colors.text.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
+                        VStack(spacing: 8) {
+                            Text("Secure your identity with your unique cardiac signature")
+                                .font(.subheadline)
+                                .foregroundColor(colors.text.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                            
+                            // Apple Watch connection status
+                            HStack(spacing: 6) {
+                                Image(systemName: "applewatch.watchface")
+                                    .font(.caption)
+                                    .foregroundColor(colors.accent)
+                                Text("Requires paired Apple Watch with ECG")
+                                    .font(.caption)
+                                    .foregroundColor(colors.secondary)
+                            }
+                        }
+                        .padding(.horizontal)
                     }
                     .padding(.top, 30)
                     
@@ -94,22 +120,28 @@ struct LoginView: View {
                     
                     Spacer()
                     
-                    // Sign Up Option
+                    // Sign Up Option - Fixed navigation
                     HStack {
                         Text("Don't have an account?")
                             .font(.subheadline)
                             .foregroundColor(colors.text.opacity(0.7))
-                        
+
                         Button(action: {
-                            // Show sign up screen
+                            authViewModel.setInitialFlow(.signUp)
+                            showingSignUp = true
                         }) {
                             Text("Sign Up")
                                 .font(.subheadline)
+                                .fontWeight(.semibold)
                                 .foregroundColor(colors.accent)
                         }
                     }
                     .padding(.bottom, 20)
                 }
+            }
+            .sheet(isPresented: $showingSignUp) {
+                SignUpView()
+                    .environmentObject(authViewModel)
             }
             .alert(isPresented: $showError) {
                 Alert(
@@ -161,5 +193,6 @@ struct LoginView: View {
 // MARK: - Preview
 #Preview {
     LoginView()
+        .environmentObject(AuthViewModel())
         .preferredColorScheme(.dark)
 }

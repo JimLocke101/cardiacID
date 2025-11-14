@@ -14,6 +14,7 @@ struct DashboardView: View {
     @State private var lastHeartRateTime: Date? = nil
     @State private var lastAuthEvent: AuthEvent? = nil
     @State private var showingAuthDetail = false
+    @State private var showingMenu = false
     @State private var recentEvents: [AuthEvent] = []
     @State private var connectedDevices: [Device] = []
     
@@ -53,6 +54,17 @@ struct DashboardView: View {
         }
         .background(colors.background)
         .navigationTitle("Dashboard")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HamburgerMenuButton(showMenu: $showingMenu)
+            }
+        }
+        .sheet(isPresented: $showingMenu) {
+            MenuView(isPresented: $showingMenu)
+                .environmentObject(authViewModel)
+                .environmentObject(authManager)
+        }
         .onAppear {
             setupSubscriptions()
             updateAuthStatus()
@@ -360,7 +372,7 @@ struct RecentActivityList: View {
     func eventDescription(for event: AuthEvent) -> String {
         let action: String
         switch event.eventType {
-        case .biometricAuth, .passwordAuth:
+        case .biometricAuth, .passwordAuth, .authentication:
             action = "Authentication"
         case .signIn:
             action = "Sign In"
@@ -374,6 +386,10 @@ struct RecentActivityList: View {
             action = "Password Reset"
         case .tokenRefresh:
             action = "Token Refresh"
+        case .enrollment:
+            action = "Enrollment"
+        case .revocation:
+            action = "Revocation"
         }
 
         return "\(action) \(event.success ? "Successful" : "Failed")"

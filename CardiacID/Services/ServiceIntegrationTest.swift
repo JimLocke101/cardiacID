@@ -2,12 +2,13 @@ import Foundation
 import Combine
 
 /// Test class to verify all services work together correctly
+@MainActor
 class ServiceIntegrationTest: ObservableObject {
     @Published var testResults: [String: Bool] = [:]
     @Published var errorMessages: [String: String] = [:]
-    
+
     private var cancellables = Set<AnyCancellable>()
-    
+
     func runAllTests() {
         testResults.removeAll()
         errorMessages.removeAll()
@@ -24,20 +25,16 @@ class ServiceIntegrationTest: ObservableObject {
     // MARK: - Individual Service Tests
     
     private func testEntraIDService() {
-        let service = EntraIDService(
-            tenantId: "test-tenant",
-            clientId: "test-client",
-            redirectUri: "test://redirect"
-        )
-        
+        let service = EntraIDService()
+
         // Test initialization
         testResults["EntraIDService Initialization"] = true
-        
+
         // Test authentication state
         testResults["EntraIDService Auth State"] = !service.isAuthenticated // Should start as not authenticated
-        
+
         // Test user permissions
-        testResults["EntraIDService Permissions"] = !service.hasPermission(.heartAuthentication) // Should be false initially
+        testResults["EntraIDService Permissions"] = !service.hasPermission(.doorAccess) // Should be false initially
     }
     
     private func testBluetoothService() {
@@ -83,11 +80,7 @@ class ServiceIntegrationTest: ObservableObject {
     }
     
     private func testDeviceManagementService() {
-        let entraIDService = EntraIDService(
-            tenantId: "test-tenant",
-            clientId: "test-client",
-            redirectUri: "test://redirect"
-        )
+        let entraIDService = EntraIDService()
         let service = DeviceManagementService(entraIDService: entraIDService)
         
         // Test initialization
@@ -196,11 +189,7 @@ class ServiceIntegrationTest: ObservableObject {
     
     func testServiceIntegration() {
         // Test that all services can work together
-        let entraIDService = EntraIDService(
-            tenantId: "test-tenant",
-            clientId: "test-client",
-            redirectUri: "test://redirect"
-        )
+        let entraIDService = EntraIDService()
         let _ = DeviceManagementService(entraIDService: entraIDService)
         let _ = PasswordlessAuthService()
         

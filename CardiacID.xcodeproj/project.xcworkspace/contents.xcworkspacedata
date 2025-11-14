@@ -5,18 +5,6 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:EnvironmentConfig 2.swift">
-   </FileRef>
-   <FileRef
-      location = "group:SupabaseConfiguration.swift">
-   </FileRef>
-   <FileRef
-      location = "group:Todo.swift">
-   </FileRef>
-   <FileRef
-      location = "group:SupabaseClient.swift">
-   </FileRef>
-   <FileRef
-      location = "group:TodoContentView.swift">
+      location = "group:AppleWatchSetupView.swift">
    </FileRef>
 </Workspace>

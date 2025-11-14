@@ -197,7 +197,7 @@ struct EntraIDUser: Codable, Identifiable {
 
 /// Production EntraID authentication client using MSAL
 @MainActor
-class EntraIDAuthClient: NSObject, EntraIDService, HoldableService, ObservableObject {
+class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
     // MARK: - Singleton
     static let shared = EntraIDAuthClient()
 
