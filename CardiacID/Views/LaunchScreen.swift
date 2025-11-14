@@ -7,7 +7,7 @@ struct LaunchScreen: View {
     
     // Animation states
     @State private var scale = 0.7
-    @State private var opacity = 0.0
+    @State private var opacity = 0.8
     @State private var rotation = -20.0
     @State private var showWelcomeFlow = false
     @State private var isNewUser = true
@@ -26,11 +26,15 @@ struct LaunchScreen: View {
     
     var body: some View {
         ZStack {
+            // Opaque background
+            colors.background
+                .ignoresSafeArea()
+            
             // Background gradient with enhanced security visual
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(UIColor.systemBackground),
-                    colors.background.opacity(0.3),
+                    Color(UIColor.black),
+                    colors.background.opacity(0.8),
                     colors.accent.opacity(0.1)
                 ]),
                 startPoint: .top,
@@ -170,14 +174,14 @@ struct LaunchScreen: View {
             await performSecurityChecks()
             
             // Simulate secure initialization time
-            try? await Task.sleep(nanoseconds: 2_500_000_000) // 2.5 seconds
+            try? await Task.sleep(nanoseconds: 3_500_000_000) // 3.5 seconds
             
             await MainActor.run {
                 loadingComplete = true
                 
                 // Show welcome flow with slight delay for smooth transition
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation(.easeInOut(duration: 0.6)) {
+                    withAnimation(.easeInOut(duration: 1.6)) {
                         showWelcomeFlow = true
                     }
                 }
@@ -317,6 +321,7 @@ struct WelcomeFlowView: View {
                 Image(systemName: "heart.rectangle.fill")
                     .font(.system(size: 60))
                     .foregroundColor(colors.accent)
+                    .background(Color.black.opacity(0.8))
                 
                 Text("Secure Your Digital Life")
                     .font(.system(size: 22, weight: .bold, design: .rounded))
@@ -337,7 +342,7 @@ struct WelcomeFlowView: View {
                     title: "Military-Grade Security", 
                     description: "Your heart pattern is encrypted and never leaves your device",
                     iconColor: colors.accent,
-                    backgroundColor: colors.accent.opacity(0.2),
+                    backgroundColor: colors.accent.opacity(0.8),
                     titleColor: colors.text,
                     descriptionColor: colors.secondary
                 )
@@ -346,7 +351,7 @@ struct WelcomeFlowView: View {
                     title: "Instant Access", 
                     description: "Authenticate in seconds with just your heartbeat",
                     iconColor: colors.accent,
-                    backgroundColor: colors.accent.opacity(0.2),
+                    backgroundColor: colors.accent.opacity(0.8),
                     titleColor: colors.text,
                     descriptionColor: colors.secondary
                 )
@@ -355,7 +360,7 @@ struct WelcomeFlowView: View {
                     title: "Private & Secure", 
                     description: "No passwords to remember or lose",
                     iconColor: colors.accent,
-                    backgroundColor: colors.accent.opacity(0.2),
+                    backgroundColor: colors.accent.opacity(0.8),
                     titleColor: colors.text,
                     descriptionColor: colors.secondary
                 )
