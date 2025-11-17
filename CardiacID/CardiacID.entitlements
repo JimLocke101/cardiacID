@@ -9,9 +9,5 @@
 		<string>group.ARGOS.HeartIDv0.6</string>
 		<string>group.com.heartid.ecg.shared</string>
 	</array>
-	<key>com.apple.security.hardened-process</key>
-	<true/>
-	<key>com.apple.security.hardened-process.enhanced-security-version</key>
-	<integer>1</integer>
 </dict>
 </plist>

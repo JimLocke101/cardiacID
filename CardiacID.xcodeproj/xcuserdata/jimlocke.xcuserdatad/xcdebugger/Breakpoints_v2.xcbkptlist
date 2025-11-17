@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   uuid = "4E4C0DE3-913B-4D19-ABDD-583129438383"
+   type = "1"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "0618F7C1-A336-496E-B475-DC9DA7895501"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "CardiacID/Views/LaunchScreen.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "334"
+            endingLineNumber = "334"
+            landmarkName = "performSecurityChecks()"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 1f551fb61bc9712d"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(1) suspend resume partial function for CardiacID.LaunchScreen.performSecurityChecks() async -&gt; ()"
+                  moduleName = "CardiacID.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/jimlocke/Desktop/Working_folder/CardiacID/CardiacID/Views/LaunchScreen.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "305"
+                  endingLineNumber = "305">
+               </Location>
+               <Location
+                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 309fc9ff987593a1"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(2) await resume partial function for CardiacID.LaunchScreen.performSecurityChecks() async -&gt; ()"
+                  moduleName = "CardiacID.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/jimlocke/Desktop/Working_folder/CardiacID/CardiacID/Views/LaunchScreen.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "305"
+                  endingLineNumber = "305">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>

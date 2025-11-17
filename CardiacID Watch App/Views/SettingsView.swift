@@ -398,12 +398,12 @@ struct AboutView: View {
                             .font(.headline)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            FeatureRow(icon: "shield.checkered", text: "Secure biometric authentication")
-                            FeatureRow(icon: "lock.shield", text: "End-to-end encryption")
-                            FeatureRow(icon: "heart.fill", text: "PPG sensor integration")
-                            FeatureRow(icon: "waveform.path.ecg", text: "ECG pattern analysis")
-                            FeatureRow(icon: "bell", text: "Background monitoring")
-                            FeatureRow(icon: "hand.raised", text: "Privacy-first design")
+                            SettingsFeatureRow(icon: "shield.checkered", text: "Secure biometric authentication")
+                            SettingsFeatureRow(icon: "lock.shield", text: "End-to-end encryption")
+                            SettingsFeatureRow(icon: "heart.fill", text: "PPG sensor integration")
+                            SettingsFeatureRow(icon: "waveform.path.ecg", text: "ECG pattern analysis")
+                            SettingsFeatureRow(icon: "bell", text: "Background monitoring")
+                            SettingsFeatureRow(icon: "hand.raised", text: "Privacy-first design")
                         }
                     }
                     .padding()
@@ -440,7 +440,7 @@ struct AboutView: View {
     }
 }
 
-struct FeatureRow: View {
+struct SettingsFeatureRow: View {
     let icon: String
     let text: String
     
