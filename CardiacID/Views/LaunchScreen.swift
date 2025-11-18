@@ -1,6 +1,27 @@
 import SwiftUI
 import LocalAuthentication
 
+// MARK: - LaunchScreen
+/// HeartID Launch Screen with Extended Animations
+///
+/// **Animation Timing:**
+/// - Total duration: ~8 seconds (5s animation + 3s hold)
+/// - Extended by 300% from original timing for smooth, engaging UX
+/// - Dynamic entrance with staggered element animations
+/// - Continuous heartbeat effect during display
+///
+/// **Buffer Management:**
+/// - Clears all animation buffers on initialization for fresh start
+/// - Preserves user data (enrollment status, preferences)
+/// - Ensures no animation state conflicts between launches
+///
+/// **Software Update Path:**
+/// - Updates delivered via App Store (standard iOS mechanism)
+/// - For enterprise: MDM/TestFlight for controlled rollouts
+/// - Version checking can be added via EnvironmentConfig
+/// - Secure code signing enforced by iOS platform
+/// - Future: Add version check in performSecurityChecks() if needed
+///
 struct LaunchScreen: View {
     // Color scheme
     private let colors = HeartIDColors()
@@ -184,15 +205,15 @@ struct LaunchScreen: View {
                     }
                     .opacity(opacity)
                     
-                    // App name with security emphasis - dynamic entrance
-                    VStack(spacing: 8) {
+                    // App name with security emphasis - dynamic entrance and enhanced readability
+                    VStack(spacing: 12) {
                         Text("HeartID")
-                            .font(.system(size: 56, weight: .black, design: .rounded)) // Increased from 43
+                            .font(.system(size: 64, weight: .black, design: .rounded)) // Increased for better visibility
                             .foregroundStyle(
                                 LinearGradient(
                                     gradient: Gradient(colors: [
                                         colors.text,
-                                        colors.accent.opacity(0.8),
+                                        colors.accent.opacity(0.9),
                                         colors.text
                                     ]),
                                     startPoint: .topLeading,
@@ -202,33 +223,37 @@ struct LaunchScreen: View {
                             .opacity(opacity)
                             .offset(y: titleOffset)
                             .animation(.spring(response: 1.2, dampingFraction: 0.7).delay(0.5), value: titleOffset)
-                            .shadow(color: colors.accent.opacity(0.3), radius: 8, x: 0, y: 4)
-                        
-                        HStack(spacing: 6) {
+                            .shadow(color: colors.accent.opacity(0.5), radius: 12, x: 0, y: 6) // Enhanced glow
+                            .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2) // Depth shadow
+
+                        HStack(spacing: 8) {
                             Image(systemName: "lock.shield.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 20, weight: .bold)) // Increased icon size
                                 .foregroundColor(colors.accent)
+                                .shadow(color: colors.accent.opacity(0.6), radius: 6, x: 0, y: 0) // Icon glow
                             Text("Secure Biometric Authentication")
-                                .font(.system(size: 18, weight: .semibold, design: .rounded)) // Increased from 16
+                                .font(.system(size: 20, weight: .bold, design: .rounded)) // Increased for readability
                                 .foregroundColor(colors.secondary)
+                                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 1) // Text shadow for depth
                         }
                         .opacity(opacity * 0.9)
                         .offset(y: subtitleOffset)
                         .animation(.spring(response: 1.0, dampingFraction: 0.8).delay(0.8), value: subtitleOffset)
-                        .shadow(color: colors.accent.opacity(0.2), radius: 4, x: 0, y: 2)
+                        .shadow(color: colors.accent.opacity(0.3), radius: 8, x: 0, y: 4) // Overall glow
                     }
                     
-                    // Loading indicator with security context
+                    // Loading indicator with security context - enhanced readability
                     VStack(spacing: 12) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 10) {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: colors.accent))
-                                .scaleEffect(0.8)
-                            
+                                .scaleEffect(1.0) // Increased from 0.8 for better visibility
+
                             Text("Initializing Secure Environment...")
-                                .font(.caption)
+                                .font(.system(size: 15, weight: .medium, design: .rounded)) // Increased from .caption
                                 .foregroundColor(colors.secondary)
-                                .opacity(opacity * 0.6)
+                                .opacity(opacity * 0.8) // Increased from 0.6 for better readability
+                                .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1) // Added shadow for depth
                         }
                         
                         // Enhanced security status indicators - 30% larger with dynamic entrance
@@ -269,17 +294,17 @@ struct LaunchScreen: View {
     }
     
     private func initializeSecureLaunch() {
-        print("HeartID: Starting advanced secure launch initialization")
-        
-        // Clear all animation states and buffers first
+        print("HeartID: Starting advanced secure launch initialization - Extended timing (300%)")
+
+        // Clear all animation states and buffers first - ensures fresh start every time
         clearAllBuffers()
-        
+
         // Start the dynamic entrance sequence
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.startDynamicEntrance()
         }
-        
-        // Store timer reference for proper cleanup
+
+        // Store timer reference for proper cleanup - heartbeat runs during animation
         let heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 1.2, repeats: true) { timer in
             if !self.showWelcomeFlow && self.isAnimating {
                 self.triggerHeartbeat()
@@ -287,19 +312,25 @@ struct LaunchScreen: View {
                 timer.invalidate()
             }
         }
-        
-        // Perform security and user state checks
+
+        // Perform security and user state checks in background
         Task {
             do {
                 await performSecurityChecks()
-                
-                // Reduced animation time to 2.5 seconds instead of 5
-                try await Task.sleep(nanoseconds: 2_500_000_000) // 2.5 seconds
-                
+
+                // Extended animation time: 5 seconds (was 2.5) + 3 second hold = 8 seconds total
+                try await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds for animation
+
+                // Hold for 2-4 seconds after animation completes (using 3 seconds as middle ground)
+                try await Task.sleep(nanoseconds: 3_000_000_000) // 3 second hold
+
                 await MainActor.run {
-                    print("HeartID: Loading completed, preparing dynamic transition")
-                    heartbeatTimer.invalidate() // Clean up timer
-                    
+                    print("HeartID: Animation sequence completed (8 seconds total), preparing transition")
+                    heartbeatTimer.invalidate() // Clean up timer before transition
+
+                    // Clear buffers one final time before transition to ensure clean state
+                    self.clearAllBuffers()
+
                     // Dynamic exit animation before showing welcome flow
                     self.performDynamicExit {
                         withAnimation(.spring(response: 1.2, dampingFraction: 0.8)) {
@@ -311,16 +342,18 @@ struct LaunchScreen: View {
                 print("HeartID: Error in initialization task: \(error)")
                 await MainActor.run {
                     heartbeatTimer.invalidate()
+                    self.clearAllBuffers() // Clean up on error
                     self.emergencyShowWelcomeFlow()
                 }
             }
         }
-        
-        // Reduced fallback timeout to 4 seconds to match new timing
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+
+        // Extended fallback timeout to 10 seconds (to cover 8s animation + buffer)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
             if !self.showWelcomeFlow {
-                print("HeartID: Enhanced fallback triggered")
+                print("HeartID: Enhanced fallback triggered after 10 seconds")
                 heartbeatTimer.invalidate()
+                self.clearAllBuffers() // Ensure clean state on timeout
                 self.emergencyShowWelcomeFlow()
             }
         }
@@ -433,7 +466,10 @@ struct LaunchScreen: View {
 // MARK: - Enhanced Animation Control Functions
 extension LaunchScreen {
     private func clearAllBuffers() {
+        print("HeartID: Clearing all animation buffers and resetting state")
+
         // Reset all animation states to initial values
+        // This ensures each app launch starts fresh without residual animation state
         scale = 0.3
         opacity = 0.0
         rotation = -45.0
@@ -445,40 +481,44 @@ extension LaunchScreen {
         indicatorsOffset = 200
         logoBlur = 20
         isAnimating = false
+
+        // Note: User data (hasExistingEnrollment, isNewUser, etc.) is NOT cleared
+        // Only animation/visual state is reset to ensure smooth transitions
+        print("HeartID: Animation buffers cleared successfully")
     }
     
     private func startDynamicEntrance() {
-        print("HeartID: Starting dynamic entrance sequence")
-        
-        // Dramatic entrance sequence
-        withAnimation(.spring(response: 1.8, dampingFraction: 0.6)) {
+        print("HeartID: Starting extended dynamic entrance sequence (300% timing)")
+
+        // Extended dramatic entrance sequence - 300% longer (1.8s -> 5.4s)
+        withAnimation(.spring(response: 5.4, dampingFraction: 0.5)) {
             scale = 1.0
             opacity = 1.0
             rotation = 0.0
             logoBlur = 0
         }
-        
-        // Staggered entrance of text elements
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 1.2, dampingFraction: 0.7)) {
+
+        // Staggered entrance of text elements with extended timing (300%)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { // 0.3s -> 0.9s
+            withAnimation(.spring(response: 3.6, dampingFraction: 0.6)) { // 1.2s -> 3.6s
                 self.titleOffset = 0
             }
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.spring(response: 1.0, dampingFraction: 0.8)) {
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { // 0.6s -> 1.8s
+            withAnimation(.spring(response: 3.0, dampingFraction: 0.7)) { // 1.0s -> 3.0s
                 self.subtitleOffset = 0
             }
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation(.spring(response: 1.4, dampingFraction: 0.6)) {
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.7) { // 0.9s -> 2.7s
+            withAnimation(.spring(response: 4.2, dampingFraction: 0.5)) { // 1.4s -> 4.2s
                 self.indicatorsOffset = 0
             }
         }
-        
-        // Start continuous heartbeat after entrance
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+
+        // Start continuous heartbeat after entrance - extended timing
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { // 1.5s -> 3.5s (allows more time for entrance)
             self.isAnimating = true
             self.triggerHeartbeat()
         }
@@ -486,39 +526,39 @@ extension LaunchScreen {
     
     private func triggerHeartbeat() {
         guard isAnimating && !showWelcomeFlow else { return }
-        
-        // Heart pulse animation
-        withAnimation(.easeInOut(duration: 0.15)) {
-            heartbeatScale = 1.15
+
+        // Enhanced heart pulse animation - more dramatic and dynamic
+        withAnimation(.easeInOut(duration: 0.2)) {
+            heartbeatScale = 1.25 // Increased from 1.15 for more dramatic effect
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.heartbeatScale = 0.95
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                self.heartbeatScale = 0.9 // Slightly deeper dip for more contrast
             }
         }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                 self.heartbeatScale = 1.0
             }
         }
-        
-        // Radiating circles animation synchronized with heartbeat
+
+        // Enhanced radiating circles animation - more dynamic and visible
         for i in 0..<3 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.2) {
-                withAnimation(.easeOut(duration: 1.5)) {
-                    self.pulseRadius[i] = 200 + CGFloat(i) * 50
-                    self.pulseOpacity[i] = 0.8
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.25) {
+                withAnimation(.easeOut(duration: 2.0)) { // Longer duration for smoother expansion
+                    self.pulseRadius[i] = 250 + CGFloat(i) * 60 // Larger radius for more visibility
+                    self.pulseOpacity[i] = 0.9 // Higher opacity for more visibility
                 }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                    withAnimation(.easeOut(duration: 0.8)) {
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation(.easeOut(duration: 1.0)) {
                         self.pulseOpacity[i] = 0.0
                     }
                 }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                     self.pulseRadius[i] = 0
                 }
             }
