@@ -124,6 +124,59 @@ class WatchConnectivityService: NSObject, ObservableObject {
         ]
         sendMessage(message, completion: completion)
     }
+
+    // MARK: - iOS-Compatible Message Methods
+
+    /// Send heart rate update to iOS using iOS-compatible format
+    func sendHeartRateToiOS(_ heartRate: Int) {
+        let message: [String: Any] = [
+            "message_type": "heart_rate_update",  // iOS format key
+            "heart_rate": heartRate,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message) { success in
+            if success {
+                print("✅ Watch: Sent heart rate to iOS: \(heartRate) BPM")
+            } else {
+                print("❌ Watch: Failed to send heart rate to iOS")
+            }
+        }
+    }
+
+    /// Send authentication status to iOS using iOS-compatible format
+    func sendAuthStatusToiOS(_ status: String) {
+        let message: [String: Any] = [
+            "message_type": "auth_status_update",  // iOS format key
+            "auth_status": status,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message) { success in
+            if success {
+                print("✅ Watch: Sent auth status to iOS: \(status)")
+            } else {
+                print("❌ Watch: Failed to send auth status to iOS")
+            }
+        }
+    }
+
+    /// Notify iOS that enrollment is complete using iOS-compatible format
+    func notifyEnrollmentCompleteToiOS(_ status: String) {
+        let message: [String: Any] = [
+            "message_type": "enrollment_complete",  // iOS format key
+            "enrollment_status": status,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message) { success in
+            if success {
+                print("✅ Watch: Sent enrollment complete to iOS")
+            } else {
+                print("❌ Watch: Failed to send enrollment status to iOS")
+            }
+        }
+    }
 }
 
 // MARK: - WCSessionDelegate
@@ -173,28 +226,103 @@ extension WatchConnectivityService: WCSessionDelegate {
     }
     
     private func handleReceivedMessage(_ message: [String: Any]) {
-        guard let type = message["type"] as? String else { return }
-        
+        print("⌚️ Watch received message: \(message)")
+
+        // Check for iOS format first (message_type key)
+        if let messageType = message["message_type"] as? String {
+            handleiOSMessage(messageType, data: message)
+            return
+        }
+
+        // Fallback to legacy format (type key) for backward compatibility
+        if let type = message["type"] as? String {
+            handleLegacyMessage(type, data: message)
+            return
+        }
+
+        print("⚠️ Watch: Unknown message format received")
+    }
+
+    /// Handle messages from iOS app using iOS format (message_type key)
+    private func handleiOSMessage(_ messageType: String, data: [String: Any]) {
+        print("📱 Watch: Processing iOS message type: \(messageType)")
+
+        switch messageType {
+        case "start_monitoring":
+            // iOS is requesting heart rate monitoring
+            print("⌚️ Watch: iOS requested start monitoring")
+            NotificationCenter.default.post(
+                name: .init("StartHeartRateMonitoring"),
+                object: nil
+            )
+
+        case "stop_monitoring":
+            // iOS is requesting to stop monitoring
+            print("⌚️ Watch: iOS requested stop monitoring")
+            NotificationCenter.default.post(
+                name: .init("StopHeartRateMonitoring"),
+                object: nil
+            )
+
+        case "enrollment_request":
+            // iOS is requesting enrollment
+            print("⌚️ Watch: iOS requested enrollment")
+            NotificationCenter.default.post(name: .enrollmentRequest, object: nil)
+
+        case "entra_id_auth_request":
+            // Handle EntraID authentication request from iOS
+            print("⌚️ Watch: iOS requested EntraID auth")
+            NotificationCenter.default.post(
+                name: .init("EntraIDAuthRequest"),
+                object: nil
+            )
+
+        case "entra_id_auth_result":
+            // Handle EntraID auth result from iOS
+            if let success = data["success"] as? Bool {
+                print("🔐 Watch: Received EntraID auth result from iOS: \(success)")
+                NotificationCenter.default.post(
+                    name: .init("EntraIDAuthResultReceived"),
+                    object: nil,
+                    userInfo: ["success": success]
+                )
+            }
+
+        case "passwordless_auth_request":
+            // Handle passwordless auth request from iOS
+            print("⌚️ Watch: iOS requested passwordless auth")
+            if let method = data["method"] as? String {
+                NotificationCenter.default.post(
+                    name: .init("PasswordlessAuthRequest"),
+                    object: nil,
+                    userInfo: ["method": method]
+                )
+            }
+
+        default:
+            print("⚠️ Watch: Unknown iOS message type: \(messageType)")
+        }
+    }
+
+    /// Handle legacy format messages (type key) for backward compatibility
+    private func handleLegacyMessage(_ type: String, data: [String: Any]) {
+        print("🔄 Watch: Processing legacy message type: \(type)")
+
         switch type {
         case "heartPatternRequest":
-            // iOS app is requesting heart pattern data
-            // This would trigger the watch to start capturing heart data
             NotificationCenter.default.post(name: .heartPatternRequest, object: nil)
-            
+
         case "authenticationRequest":
-            // iOS app is requesting authentication
             NotificationCenter.default.post(name: .authenticationRequest, object: nil)
-            
+
         case "enrollmentRequest":
-            // iOS app is requesting enrollment
             NotificationCenter.default.post(name: .enrollmentRequest, object: nil)
-            
+
         case "settingsUpdate":
-            // iOS app is updating settings
-            if let settings = message["settings"] as? [String: Any] {
+            if let settings = data["settings"] as? [String: Any] {
                 NotificationCenter.default.post(name: .settingsUpdate, object: settings)
             }
-            
+
         default:
             break
         }

@@ -249,13 +249,28 @@ extension WatchConnectivityService: WCSessionDelegate {
     }
     
     // MARK: - Message Handling
-    
+
     private func handleReceivedMessage(_ message: [String: Any]) {
-        guard let messageTypeRaw = message[WatchMessage.Keys.messageType] as? String,
-              let messageType = WatchMessage(rawValue: messageTypeRaw) else {
+        print("📱 iOS received message from Watch: \(message)")
+
+        // Check for iOS format first (message_type key)
+        if let messageTypeRaw = message[WatchMessage.Keys.messageType] as? String,
+           let messageType = WatchMessage(rawValue: messageTypeRaw) {
+            handleStandardMessage(messageType, message: message)
             return
         }
-        
+
+        // Check for Watch legacy format (type key)
+        if let typeString = message["type"] as? String {
+            handleWatchFormatMessage(typeString, message: message)
+            return
+        }
+
+        print("⚠️ iOS: Received message with unknown format")
+    }
+
+    /// Handle messages using standard iOS WatchMessage format
+    private func handleStandardMessage(_ messageType: WatchMessage, message: [String: Any]) {
         DispatchQueue.main.async {
             switch messageType {
             case .heartRateUpdate:
@@ -264,26 +279,67 @@ extension WatchConnectivityService: WCSessionDelegate {
                     let timestamp = Date()
                     self.lastHeartRateTimestamp = timestamp
                     self.heartRateSubject.send((heartRate, timestamp))
+                    print("❤️ iOS: Received heart rate from Watch: \(heartRate) BPM")
                 }
-                
+
             case .authStatusUpdate:
                 if let status = message[WatchMessage.Keys.authStatus] as? String {
                     self.authStatusSubject.send(status)
+                    print("🔐 iOS: Received auth status from Watch: \(status)")
                 }
-                
+
             case .enrollmentComplete:
                 if let status = message[WatchMessage.Keys.enrollmentStatus] as? String {
-                    // Handle enrollment completion
-                    print("Enrollment complete with status: \(status)")
+                    print("✅ iOS: Enrollment complete with status: \(status)")
+                    // Notify app of enrollment completion
+                    NotificationCenter.default.post(
+                        name: .init("WatchEnrollmentComplete"),
+                        object: nil,
+                        userInfo: ["status": status]
+                    )
                 }
-                
+
             default:
                 break
             }
-            
+
             // Handle any error messages
             if let error = message[WatchMessage.Keys.error] as? String {
                 self.errorSubject.send(error)
+            }
+        }
+    }
+
+    /// Handle messages from Watch using legacy format (type key)
+    private func handleWatchFormatMessage(_ type: String, message: [String: Any]) {
+        DispatchQueue.main.async {
+            print("⌚️ iOS: Handling Watch legacy format message: \(type)")
+
+            switch type {
+            case "heartPattern":
+                if let data = message["data"] as? [Double] {
+                    print("❤️ iOS: Received heart pattern data from Watch: \(data.count) samples")
+                    // Could convert to heart rate or store pattern
+                }
+
+            case "authenticationResult":
+                if let result = message["result"] as? String {
+                    print("🔐 iOS: Received auth result from Watch: \(result)")
+                    self.authStatusSubject.send(result)
+                }
+
+            case "enrollmentStatus":
+                if let isEnrolled = message["isEnrolled"] as? Bool {
+                    print("✅ iOS: Received enrollment status from Watch: \(isEnrolled)")
+                    NotificationCenter.default.post(
+                        name: .init("WatchEnrollmentComplete"),
+                        object: nil,
+                        userInfo: ["isEnrolled": isEnrolled]
+                    )
+                }
+
+            default:
+                print("⚠️ iOS: Unknown Watch message type: \(type)")
             }
         }
     }
