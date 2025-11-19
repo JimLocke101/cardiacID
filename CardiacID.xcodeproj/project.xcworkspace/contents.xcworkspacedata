@@ -5,6 +5,9 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:AppleWatchSetupView.swift">
+      location = "group:WatchApp_ContentView.swift">
+   </FileRef>
+   <FileRef
+      location = "group:WatchHeartRateService.swift">
    </FileRef>
 </Workspace>

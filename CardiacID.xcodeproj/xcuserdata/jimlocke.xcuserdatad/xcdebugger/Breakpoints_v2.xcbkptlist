@@ -16,36 +16,36 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "334"
             endingLineNumber = "334"
-            landmarkName = "performSecurityChecks()"
+            landmarkName = "initializeSecureLaunch()"
             landmarkType = "7">
             <Locations>
                <Location
-                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 1f551fb61bc9712d"
+                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 3a1c061cfda7cb07"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "(1) suspend resume partial function for CardiacID.LaunchScreen.performSecurityChecks() async -&gt; ()"
+                  symbolName = "closure #1 @Swift.MainActor @Sendable () -&gt; () in closure #3 () async -&gt; () in CardiacID.LaunchScreen.initializeSecureLaunch() -&gt; ()"
                   moduleName = "CardiacID.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/jimlocke/Desktop/Working_folder/CardiacID/CardiacID/Views/LaunchScreen.swift"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "305"
-                  endingLineNumber = "305">
+                  startingLineNumber = "335"
+                  endingLineNumber = "335">
                </Location>
                <Location
-                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 309fc9ff987593a1"
+                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 56c796e7283e3a28"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "(2) await resume partial function for CardiacID.LaunchScreen.performSecurityChecks() async -&gt; ()"
+                  symbolName = "closure #1 () -&gt; () in closure #1 @Swift.MainActor @Sendable () -&gt; () in closure #3 () async -&gt; () in CardiacID.LaunchScreen.initializeSecureLaunch() -&gt; ()"
                   moduleName = "CardiacID.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/jimlocke/Desktop/Working_folder/CardiacID/CardiacID/Views/LaunchScreen.swift"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "305"
-                  endingLineNumber = "305">
+                  startingLineNumber = "335"
+                  endingLineNumber = "335">
                </Location>
             </Locations>
          </BreakpointContent>
