@@ -86,6 +86,10 @@ struct MenuView: View {
             .navigationTitle("CardiacID")
             .navigationBarTitleDisplayMode(.inline)
         }
+        .task {
+            // Initialize HeartIDService on app launch
+            await heartIDService.initialize()
+        }
     }
 
     // MARK: - Components

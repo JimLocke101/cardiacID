@@ -34,7 +34,7 @@
                   endingLineNumber = "335">
                </Location>
                <Location
-                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 56c796e7283e3a28"
+                  uuid = "0618F7C1-A336-496E-B475-DC9DA7895501 - 56c796e7283e3a4f"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
@@ -44,8 +44,8 @@
                   urlString = "file:///Users/jimlocke/Desktop/Working_folder/CardiacID/CardiacID/Views/LaunchScreen.swift"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "335"
-                  endingLineNumber = "335">
+                  startingLineNumber = "336"
+                  endingLineNumber = "336">
                </Location>
             </Locations>
          </BreakpointContent>

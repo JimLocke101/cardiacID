@@ -551,6 +551,46 @@ class HealthKitService: ObservableObject {
         let stdDev: Double
         let rmssd: Double
     }
+    
+    // MARK: - Background Heart Rate Monitoring
+    
+    func getRecentHeartRateSamples(count: Int = 10) async throws -> [HeartRateSample] {
+        guard isAuthorized else {
+            throw HealthKitError.notAuthorized
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: heartRateType,
+                predicate: nil,
+                limit: count,
+                sortDescriptors: [sortDescriptor]
+            ) { _, samples, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                
+                let heartRateSamples = samples?.compactMap { sample -> HeartRateSample? in
+                    guard let quantitySample = sample as? HKQuantitySample else { return nil }
+                    let heartRate = quantitySample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                    return HeartRateSample(heartRate: heartRate, timestamp: sample.startDate)
+                } ?? []
+                
+                continuation.resume(returning: heartRateSamples)
+            }
+            
+            healthStore.execute(query)
+        }
+    }
+}
+
+// MARK: - Data Types
+
+struct HeartRateSample {
+    let heartRate: Double
+    let timestamp: Date
 }
 
 enum HealthKitError: Error, LocalizedError {

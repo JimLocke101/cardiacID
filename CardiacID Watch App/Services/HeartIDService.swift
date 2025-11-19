@@ -618,6 +618,78 @@ class HeartIDService: ObservableObject {
         print("🎬 Demo reset complete - Template deleted, settings preserved")
     }
 
+    // MARK: - Background Monitoring (Watch App)
+    
+    func performBackgroundConfidenceCheck() async {
+        guard enrollmentState == .enrolled else {
+            print("⏰ Background check skipped - user not enrolled")
+            return
+        }
+        
+        guard healthKit.isAuthorized else {
+            print("⏰ Background check skipped - HealthKit not authorized")
+            return
+        }
+        
+        print("⏰ Performing background confidence check...")
+        
+        do {
+            // Get recent heart rate data
+            let recentSamples = try await healthKit.getRecentHeartRateSamples(count: 10)
+            
+            if recentSamples.isEmpty {
+                print("⏰ No recent heart rate data available")
+                return
+            }
+            
+            // Calculate confidence based on PPG pattern
+            let confidence = await calculatePPGConfidence(from: recentSamples)
+            
+            await MainActor.run {
+                currentConfidence = confidence
+                
+                if confidence >= thresholds.fullAccess {
+                    authenticationState = .authenticated(confidence: confidence)
+                    print("✅ Background auth: Full access (\(Int(confidence * 100))%)")
+                } else if confidence >= thresholds.conditionalAccess {
+                    authenticationState = .conditional(confidence: confidence)
+                    print("⚠️ Background auth: Conditional access (\(Int(confidence * 100))%)")
+                } else {
+                    authenticationState = .unauthenticated
+                    print("❌ Background auth: No access (\(Int(confidence * 100))%)")
+                }
+            }
+        } catch {
+            print("❌ Background confidence check failed: \(error)")
+        }
+    }
+    
+    private func calculatePPGConfidence(from samples: [HeartRateSample]) async -> Double {
+        // Simplified confidence calculation for background monitoring
+        guard samples.count >= 5 else { return 0.0 }
+        
+        // Basic heart rate variability analysis
+        let hrValues = samples.map { $0.heartRate }
+        let avgHR = hrValues.reduce(0, +) / Double(hrValues.count)
+        
+        // Check if HR is in reasonable range for this user
+        let isReasonableRange = avgHR >= 60 && avgHR <= 120
+        let baseConfidence: Double = isReasonableRange ? 0.60 : 0.30
+        
+        // Add variability analysis
+        let hrVariability = calculateSimpleHRV(hrValues: hrValues)
+        let variabilityBonus = min(hrVariability / 100.0, 0.25)
+        
+        return min(baseConfidence + variabilityBonus, 0.95)
+    }
+    
+    private func calculateSimpleHRV(hrValues: [Double]) -> Double {
+        guard hrValues.count > 1 else { return 0.0 }
+        
+        let differences = zip(hrValues, hrValues.dropFirst()).map { abs($0.1 - $0.0) }
+        return differences.reduce(0, +) / Double(differences.count)
+    }
+    
     // MARK: - Status View Computed Properties
 
     var healthKitAuthorizationStatus: String {
