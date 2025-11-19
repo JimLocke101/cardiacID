@@ -1,17 +1,13 @@
 import SwiftUI
 
 struct MenuView: View {
-    @EnvironmentObject var authenticationService: AuthenticationService
-    @EnvironmentObject var dataManager: DataManager
+    @ObservedObject var heartIDService: HeartIDService
     @State private var showingEnroll = false
     @State private var showingAuthenticate = false
-    @State private var showingSettings = false
-    @State private var showingCalibrate = false
-    @State private var showingSecurityLevel = false
-    @State private var showingAlarmNotification = false
-    
+    @State private var showingSystemStatus = false
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
                     // Header
@@ -19,398 +15,217 @@ struct MenuView: View {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 40))
                             .foregroundColor(.red)
-                        
-                        Text("HeartID")
+
+                        Text("CardiacID")
                             .font(.title2)
                             .fontWeight(.bold)
-                        
+
                         Text("Menu")
-                            .font(.system(size: 12)) // Reduced from .title2 (22pt) by 30% to ~15pt, then further reduced
+                            .font(.system(size: 12))
                             .fontWeight(.bold)
                             .multilineTextAlignment(.center)
-                        
-                        if authenticationService.isUserEnrolled {
-                            Text("Enrolled")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
-                                .background(Color.green.opacity(0.2))
-                                .cornerRadius(8)
-                        } else {
-                            Text("Not Enrolled")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
-                                .background(Color.orange.opacity(0.2))
-                                .cornerRadius(8)
-                        }
+
+                        // Enrollment Status Badge
+                        enrollmentStatusBadge
                     }
                     .padding(.bottom, 20)
-                    
-                    // Menu Items
+
+                    // Main Menu Buttons
                     VStack(spacing: 12) {
-                        MenuButton(
-                            title: "Enroll",
-                            icon: "person.badge.plus",
-                            color: .blue,
-                            isEnabled: !authenticationService.isUserEnrolled
-                        ) {
-                            showingEnroll = true
+                        // Enroll Button
+                        NavigationLink(destination: EnrollView(heartIDService: heartIDService)) {
+                            MenuButton(
+                                icon: "person.badge.plus",
+                                title: "Enroll",
+                                subtitle: "3-ECG Template Creation",
+                                color: .blue
+                            )
                         }
-                        
-                        MenuButton(
-                            title: "Authenticate",
-                            icon: "checkmark.shield",
-                            color: .green,
-                            isEnabled: authenticationService.isUserEnrolled
-                        ) {
-                            showingAuthenticate = true
+                        .disabled(heartIDService.enrollmentState == .enrolled)
+
+                        // Authenticate Button
+                        NavigationLink(destination: AuthenticateView(heartIDService: heartIDService)) {
+                            MenuButton(
+                                icon: "checkmark.shield",
+                                title: "Authenticate",
+                                subtitle: "96-99% ECG Priority",
+                                color: .green
+                            )
                         }
-                        
-                        MenuButton(
-                            title: "Calibrate",
-                            icon: "tuningfork",
-                            color: .purple,
-                            isEnabled: authenticationService.isUserEnrolled
-                        ) {
-                            showingCalibrate = true
+                        .disabled(heartIDService.enrollmentState != .enrolled)
+
+                        // System Status Button
+                        NavigationLink(destination: SystemStatusView(heartIDService: heartIDService)) {
+                            MenuButton(
+                                icon: "chart.bar.doc.horizontal",
+                                title: "System Status",
+                                subtitle: "Real-time Monitoring",
+                                color: .orange
+                            )
                         }
-                        
-                        MenuButton(
-                            title: "Security Level",
-                            icon: "lock.shield",
-                            color: .orange,
-                            isEnabled: true
-                        ) {
-                            showingSecurityLevel = true
-                        }
-                        
-                        MenuButton(
-                            title: "Alarm Notification",
-                            icon: "bell",
-                            color: .red,
-                            isEnabled: true
-                        ) {
-                            showingAlarmNotification = true
-                        }
-                        
-                        MenuButton(
-                            title: "Settings",
-                            icon: "gear",
-                            color: .gray,
-                            isEnabled: true
-                        ) {
-                            showingSettings = true
+
+                        // Settings Button
+                        NavigationLink(destination: SettingsView(heartIDService: heartIDService)) {
+                            MenuButton(
+                                icon: "gearshape",
+                                title: "Settings",
+                                subtitle: "Thresholds & Configuration",
+                                color: .gray
+                            )
                         }
                     }
-                    
-                    Spacer()
-                    
-                    // Status Information
-                    if authenticationService.isUserEnrolled {
-                        VStack(spacing: 8) {
-                            Text("Authentication Status")
-                                .font(.headline)
-                            
-                            HStack {
-                                Circle()
-                                    .fill(authenticationService.isAuthenticated ? Color.green : Color.red)
-                                    .frame(width: 12, height: 12)
-                                
-                                Text(authenticationService.isAuthenticated ? "Authenticated" : "Not Authenticated")
-                                    .font(.caption)
-                            }
-                            
-                            if let lastResult = authenticationService.lastAuthenticationResult {
-                                Text("Last Result: \(lastResult.message)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(12)
+                    .padding(.horizontal)
+
+                    // Quick Stats (if enrolled)
+                    if heartIDService.enrollmentState == .enrolled {
+                        quickStatsSection
                     }
                 }
                 .padding()
             }
-            .navigationTitle("Menu")
+            .navigationTitle("CardiacID")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .sheet(isPresented: $showingEnroll) {
-            EnrollView()
+    }
+
+    // MARK: - Components
+
+    private var enrollmentStatusBadge: some View {
+        Group {
+            switch heartIDService.enrollmentState {
+            case .enrolled:
+                Text("Enrolled")
+                    .font(.caption)
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.2))
+                    .cornerRadius(8)
+            case .enrolling:
+                Text("Enrolling...")
+                    .font(.caption)
+                    .foregroundColor(.yellow)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color.yellow.opacity(0.2))
+                    .cornerRadius(8)
+            case .notEnrolled:
+                Text("Not Enrolled")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.2))
+                    .cornerRadius(8)
+            }
         }
-        .sheet(isPresented: $showingAuthenticate) {
-            AuthenticateView()
+    }
+
+    private var quickStatsSection: some View {
+        VStack(spacing: 12) {
+            Text("Quick Stats")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 12) {
+                StatCard(
+                    icon: "heart.fill",
+                    value: "\(Int(heartIDService.currentConfidence * 100))%",
+                    label: "Confidence",
+                    color: confidenceColor
+                )
+
+                StatCard(
+                    icon: "waveform.path.ecg",
+                    value: heartIDService.isMonitoring ? "Active" : "Inactive",
+                    label: "Monitoring",
+                    color: heartIDService.isMonitoring ? .green : .gray
+                )
+            }
         }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-        }
-        .sheet(isPresented: $showingCalibrate) {
-            CalibrateView()
-        }
-        .sheet(isPresented: $showingSecurityLevel) {
-            SecurityLevelView()
-        }
-        .sheet(isPresented: $showingAlarmNotification) {
-            AlarmNotificationView()
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(12)
+        .padding(.horizontal)
+    }
+
+    private var confidenceColor: Color {
+        if heartIDService.currentConfidence >= heartIDService.thresholds.fullAccess {
+            return .green
+        } else if heartIDService.currentConfidence >= heartIDService.thresholds.conditionalAccess {
+            return .yellow
+        } else {
+            return .red
         }
     }
 }
+
+// MARK: - Menu Button Component
 
 struct MenuButton: View {
-    let title: String
     let icon: String
+    let title: String
+    let subtitle: String
     let color: Color
-    let isEnabled: Bool
-    let action: () -> Void
-    
+
     var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundColor(isEnabled ? color : .gray)
-                    .frame(width: 30)
-                
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+                .frame(width: 40)
+
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.headline)
-                    .foregroundColor(isEnabled ? .primary : .gray)
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
+                    .foregroundColor(.primary)
+                Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.gray)
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isEnabled ? color.opacity(0.1) : Color.gray.opacity(0.05))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isEnabled ? color.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 1)
-            )
-        }
-        .disabled(!isEnabled)
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// MARK: - Supporting Views
-
-struct CalibrateView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var authenticationService: AuthenticationService
-    @EnvironmentObject var healthKitService: HealthKitService
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("Calibration")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text("Calibration helps improve authentication accuracy by analyzing your heart pattern in different conditions.")
-                    .font(.body)
-                    .multilineTextAlignment(.center)
                     .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                Button("Start Calibration") {
-                    // Start calibration process
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Spacer()
             }
-            .padding()
-            .navigationTitle("Calibrate")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(12)
     }
 }
 
-struct SecurityLevelView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var dataManager: DataManager
-    @State private var selectedLevel: SecurityLevel
-    
-    init() {
-        _selectedLevel = State(initialValue: .medium)
-    }
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("Security Level")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Text("Choose your preferred security level. Higher levels provide more security but may require more precise heart pattern matching.")
-                    .font(.body)
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
-                
-                VStack(spacing: 12) {
-                    ForEach(SecurityLevel.allCases, id: \.self) { level in
-                        SecurityLevelRow(
-                            level: level,
-                            isSelected: selectedLevel == level
-                        ) {
-                            selectedLevel = level
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                Button("Save Security Level") {
-                    var preferences = dataManager.userPreferences
-                    preferences.securityLevel = selectedLevel
-                    dataManager.saveUserPreferences(preferences)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(selectedLevel == dataManager.userPreferences.securityLevel)
-                
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Security Level")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .onAppear {
-            selectedLevel = dataManager.userPreferences.securityLevel
-        }
-    }
-}
+// MARK: - Stat Card Component
 
-struct SecurityLevelRow: View {
-    let level: SecurityLevel
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(level.rawValue)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text(level.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                } else {
-                    Image(systemName: "circle")
-                        .foregroundColor(.gray)
-                }
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: 1)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
+struct StatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
 
-struct AlarmNotificationView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var dataManager: DataManager
-    @State private var enableAlarms: Bool
-    @State private var enableNotifications: Bool
-    
-    init() {
-        _enableAlarms = State(initialValue: true)
-        _enableNotifications = State(initialValue: true)
-    }
-    
     var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("Alarm & Notifications")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                VStack(spacing: 16) {
-                    Toggle("Enable Alarms", isOn: $enableAlarms)
-                        .toggleStyle(SwitchToggleStyle())
-                    
-                    Toggle("Enable Notifications", isOn: $enableNotifications)
-                        .toggleStyle(SwitchToggleStyle())
-                }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
-                
-                Spacer()
-                
-                Button("Save Settings") {
-                    var preferences = dataManager.userPreferences
-                    preferences.enableAlarms = enableAlarms
-                    preferences.enableNotifications = enableNotifications
-                    dataManager.saveUserPreferences(preferences)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Alarms & Notifications")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
         }
-        .onAppear {
-            enableAlarms = dataManager.userPreferences.enableAlarms
-            enableNotifications = dataManager.userPreferences.enableNotifications
-        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(10)
     }
 }
 
 #Preview {
-    MenuView()
-        .environmentObject(AuthenticationService())
-        .environmentObject(DataManager())
+    MenuView(heartIDService: HeartIDService())
 }
-
-

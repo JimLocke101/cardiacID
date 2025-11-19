@@ -607,6 +607,17 @@ class HeartIDService: ObservableObject {
         print("🔄 Factory reset complete - All data securely wiped (AES-256)")
     }
 
+    func demoReset() {
+        // Delete only the template, keep settings and thresholds
+        storage.deleteTemplate()
+        stopContinuousAuth()
+        enrollmentState = .notEnrolled
+        authenticationState = .unauthenticated
+        currentConfidence = 0.0
+        // Keep thresholds, batterySettings, and currentIntegrationMode
+        print("🎬 Demo reset complete - Template deleted, settings preserved")
+    }
+
     // MARK: - Status View Computed Properties
 
     var healthKitAuthorizationStatus: String {

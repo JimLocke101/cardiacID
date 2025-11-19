@@ -3,14 +3,18 @@ import WatchConnectivity
 import Combine
 
 /// Service for handling communication between watchOS and iOS apps
+/// Enterprise-ready with AES-256 encrypted template sync support
 class WatchConnectivityService: NSObject, ObservableObject {
+    // Singleton instance for app-wide access
+    static let shared = WatchConnectivityService()
+
     @Published var isConnected = false
     @Published var lastMessage: [String: Any]?
     @Published var connectionStatus: String = "Not Connected"
-    
+
     private var session: WCSession?
-    
-    override init() {
+
+    private override init() {
         super.init()
         setupWatchConnectivity()
         setupNotificationObservers()
@@ -51,8 +55,7 @@ class WatchConnectivityService: NSObject, ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            if let resultRawValue = notification.userInfo?["result"] as? String,
-               let result = AuthenticationResult(rawValue: resultRawValue) {
+            if let result = notification.userInfo?["result"] as? AuthenticationResult {
                 self?.sendAuthenticationResult(result) { success in
                     if success {
                         print("Authentication result sent to iOS app successfully")
@@ -97,10 +100,25 @@ class WatchConnectivityService: NSObject, ObservableObject {
     
     /// Send authentication result to iOS app
     func sendAuthenticationResult(_ result: AuthenticationResult, completion: @escaping (Bool) -> Void = { _ in }) {
+        let methodString: String
+        switch result.method {
+        case .ppgContinuous:
+            methodString = "ppgContinuous"
+        case .ecgSingle:
+            methodString = "ecgSingle"
+        case .ecgMultiple:
+            methodString = "ecgMultiple"
+        case .hybrid:
+            methodString = "hybrid"
+        }
+        
         let message: [String: Any] = [
             "type": "authenticationResult",
-            "result": result.rawValue,
-            "timestamp": Date().timeIntervalSince1970
+            "success": result.success,
+            "confidenceScore": result.confidenceScore,
+            "method": methodString,
+            "requiresStepUp": result.requiresStepUp,
+            "timestamp": result.timestamp.timeIntervalSince1970
         ]
         sendMessage(message, completion: completion)
     }
@@ -113,6 +131,44 @@ class WatchConnectivityService: NSObject, ObservableObject {
             "timestamp": Date().timeIntervalSince1970
         ]
         sendMessage(message, completion: completion)
+    }
+
+    /// Send enrollment completion with user details to iOS app
+    /// Called by HeartIDService after successful 3-ECG enrollment
+    func sendEnrollmentComplete(userId: String, firstName: String, lastName: String) {
+        let message: [String: Any] = [
+            "message_type": "enrollment_complete",
+            "user_id": userId,
+            "first_name": firstName,
+            "last_name": lastName,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        sendMessage(message) { success in
+            if success {
+                print("✅ Watch: Sent enrollment complete to iOS - \(firstName) \(lastName)")
+            } else {
+                print("❌ Watch: Failed to send enrollment complete to iOS")
+            }
+        }
+    }
+
+    /// Send authentication status update to iOS app
+    /// Called by HeartIDService during continuous authentication
+    func sendAuthenticationStatus(confidence: Double, authenticated: Bool, userName: String) {
+        let message: [String: Any] = [
+            "message_type": "auth_status_update",
+            "confidence": confidence,
+            "authenticated": authenticated,
+            "user_name": userName,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        sendMessage(message) { success in
+            if success {
+                print("✅ Watch: Sent auth status to iOS - \(userName): \(Int(confidence * 100))%")
+            } else {
+                print("❌ Watch: Failed to send auth status to iOS")
+            }
+        }
     }
     
     /// Request data from iOS app

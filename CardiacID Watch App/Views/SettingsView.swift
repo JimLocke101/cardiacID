@@ -1,471 +1,417 @@
+//
+//  SettingsView.swift
+//  CardiacID Watch App
+//
+//  Ported from HeartID_0_7 - Enterprise-Ready Configuration
+//  Created by HeartID Team on 10/27/25.
+//  Configurable settings: 88-99% accuracy thresholds, battery management, integration modes, factory reset
+//
+
 import SwiftUI
 
+/// Comprehensive settings interface with confidence thresholds, battery management, and enterprise integration
 struct SettingsView: View {
+    @ObservedObject var heartIDService: HeartIDService
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var authenticationService: AuthenticationService
-    @EnvironmentObject var dataManager: DataManager
-    @EnvironmentObject var backgroundTaskService: BackgroundTaskService
-    // @EnvironmentObject var watchConnectivityService: WatchConnectivityService  // Temporarily disabled
-    
-    @State private var showingClearDataAlert = false
-    @State private var showingAbout = false
-    
+
+    @State private var minimumAccuracy: Double
+    @State private var fullAccessThreshold: Double
+    @State private var conditionalAccessThreshold: Double
+    @State private var selectedIntegrationMode: IntegrationMode
+    @State private var ppgUsageMultiplier: Double
+    @State private var confidenceCheckIntervalMinutes: Double
+    @State private var showingUnenrollConfirmation = false
+    @State private var showingFactoryResetConfirmation = false
+    @State private var showingDemoResetConfirmation = false
+
+    init(heartIDService: HeartIDService) {
+        self.heartIDService = heartIDService
+        _minimumAccuracy = State(initialValue: heartIDService.thresholds.minimumAccuracy)
+        _fullAccessThreshold = State(initialValue: heartIDService.thresholds.fullAccess)
+        _conditionalAccessThreshold = State(initialValue: heartIDService.thresholds.conditionalAccess)
+        _selectedIntegrationMode = State(initialValue: heartIDService.currentIntegrationMode)
+        _ppgUsageMultiplier = State(initialValue: heartIDService.batterySettings.ppgUsageMultiplier)
+        _confidenceCheckIntervalMinutes = State(initialValue: heartIDService.batterySettings.confidenceCheckIntervalMinutes)
+    }
+
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Header
-                    VStack(spacing: 12) {
-                        Image(systemName: "gear")
-                            .font(.system(size: 40))
-                            .foregroundColor(.gray)
-                        
-                        Text("Settings")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                    }
-                    .padding(.top, 20)
-                    
-                    // Settings Sections
-                    VStack(spacing: 16) {
-                        // Enrollment Section
-                        SettingsSection(title: "Enrollment") {
-                            VStack(spacing: 12) {
-                                if authenticationService.isUserEnrolled {
-                                    HStack {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                        Text("Enrolled")
-                                        Spacer()
-                                        Text("✓")
-                                            .foregroundColor(.green)
-                                    }
-                                    
-                                    Button("Re-enroll") {
-                                        // Handle re-enrollment
-                                    }
-                                    .buttonStyle(.bordered)
-                                } else {
-                                    HStack {
-                                        Image(systemName: "exclamationmark.circle.fill")
-                                            .foregroundColor(.orange)
-                                        Text("Not Enrolled")
-                                        Spacer()
-                                        Text("⚠")
-                                            .foregroundColor(.orange)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // ECG/PPG Settings
-                        SettingsSection(title: "Sensors") {
-                            VStack(spacing: 12) {
-                                SettingsRow(
-                                    title: "ECG",
-                                    icon: "waveform.path.ecg",
-                                    isEnabled: true
-                                ) {
-                                    // Handle ECG settings
-                                }
-                                
-                                SettingsRow(
-                                    title: "PPG",
-                                    icon: "heart.fill",
-                                    isEnabled: true
-                                ) {
-                                    // Handle PPG settings
-                                }
-                            }
-                        }
-                        
-                        // Collaboration Settings
-                        SettingsSection(title: "Collaboration") {
-                            VStack(spacing: 12) {
-                                // iOS App Connection Status (Temporarily disabled)
-                                HStack {
-                                    Image(systemName: "iphone")
-                                        .font(.title3)
-                                        .foregroundColor(.gray)
-                                        .frame(width: 24)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("iOS App")
-                                            .font(.body)
-                                            .foregroundColor(.primary)
-                                        
-                                        Text("Not Connected")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Circle()
-                                        .fill(Color.gray)
-                                        .frame(width: 12, height: 12)
-                                }
-                                .padding(.vertical, 4)
-                                
-                                SettingsRow(
-                                    title: "Bluetooth",
-                                    icon: "bluetooth",
-                                    isEnabled: dataManager.userPreferences.enableBluetooth
-                                ) {
-                                    toggleBluetooth()
-                                }
-                                
-                                SettingsRow(
-                                    title: "NFC",
-                                    icon: "wave.3.right",
-                                    isEnabled: dataManager.userPreferences.enableNFC
-                                ) {
-                                    toggleNFC()
-                                }
-                            }
-                        }
-                        
-                        // Alarms & Notifications
-                        SettingsSection(title: "Alarms & Notifications") {
-                            VStack(spacing: 12) {
-                                Toggle("Enable Alarms", isOn: Binding(
-                                    get: { dataManager.userPreferences.enableAlarms },
-                                    set: { updateAlarms($0) }
-                                ))
-                                
-                                Toggle("Enable Notifications", isOn: Binding(
-                                    get: { dataManager.userPreferences.enableNotifications },
-                                    set: { updateNotifications($0) }
-                                ))
-                            }
-                        }
-                        
-                        // Security Level
-                        SettingsSection(title: "Security") {
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Text("Security Level")
-                                    Spacer()
-                                    Text(dataManager.userPreferences.securityLevel.rawValue)
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Button("Change Security Level") {
-                                    // Handle security level change
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                        
-                        // Health Integration
-                        SettingsSection(title: "Health") {
-                            VStack(spacing: 12) {
-                                SettingsRow(
-                                    title: "HealthKit Integration",
-                                    icon: "heart.text.square",
-                                    isEnabled: true
-                                ) {
-                                    // Handle HealthKit settings
-                                }
-                                
-                                SettingsRow(
-                                    title: "Health Data Export",
-                                    icon: "square.and.arrow.up",
-                                    isEnabled: false
-                                ) {
-                                    // Handle health data export
-                                }
-                            }
-                        }
-                        
-                        // App Support
-                        SettingsSection(title: "Support") {
-                            VStack(spacing: 12) {
-                                SettingsRow(
-                                    title: "About HeartID",
-                                    icon: "info.circle",
-                                    isEnabled: true
-                                ) {
-                                    showingAbout = true
-                                }
-                                
-                                SettingsRow(
-                                    title: "Help & Support",
-                                    icon: "questionmark.circle",
-                                    isEnabled: true
-                                ) {
-                                    // Handle help
-                                }
-                                
-                                SettingsRow(
-                                    title: "Privacy Policy",
-                                    icon: "hand.raised",
-                                    isEnabled: true
-                                ) {
-                                    // Handle privacy policy
-                                }
-                            }
-                        }
-                        
-                        // Account Management
-                        SettingsSection(title: "Account") {
-                            VStack(spacing: 12) {
-                                Button("Logout") {
-                                    logout()
-                                }
-                                .buttonStyle(.bordered)
-                                .foregroundColor(.blue)
-                                
-                                Text("Return to login screen")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                        }
-                        
-                        // Danger Zone
-                        SettingsSection(title: "Data Management") {
-                            VStack(spacing: 12) {
-                                Button("Clear All Data") {
-                                    showingClearDataAlert = true
-                                }
-                                .buttonStyle(.bordered)
-                                .foregroundColor(.red)
-                                
-                                Text("This will delete all stored heart patterns and settings")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                        }
-                    }
-                    
-                    Spacer()
-                }
-                .padding()
+        NavigationStack {
+            Form {
+                accuracyThresholdsSection
+                quickPresetsSection
+                batteryManagementSection
+                integrationModeSection
+                deviceInfoSection
+                dangerZoneSection
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
                         dismiss()
                     }
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        saveSettings()
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
             }
         }
-        .alert("Clear All Data", isPresented: $showingClearDataAlert) {
+        .alert("Unenroll Device?", isPresented: $showingUnenrollConfirmation) {
             Button("Cancel", role: .cancel) { }
-            Button("Clear All Data", role: .destructive) {
-                clearAllData()
+            Button("Delete", role: .destructive) {
+                heartIDService.unenroll()
+                dismiss()
             }
         } message: {
-            Text("This action cannot be undone. All your heart patterns and settings will be permanently deleted.")
+            Text("This will permanently delete your biometric template with secure AES-256 key wipe. You will need to enroll again to use CardiacID.")
         }
-        .sheet(isPresented: $showingAbout) {
-            AboutView()
+        .alert("Factory Reset?", isPresented: $showingFactoryResetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset All", role: .destructive) {
+                heartIDService.factoryReset()
+                dismiss()
+            }
+        } message: {
+            Text("This will delete ALL app data including template, settings, and thresholds with DOD-level secure wipe. Cannot be undone!")
+        }
+        .alert("Demo Reset?", isPresented: $showingDemoResetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                heartIDService.demoReset()
+                dismiss()
+            }
+        } message: {
+            Text("This will delete your template but keep your settings (thresholds, integration mode). Use this for quick re-enrollment during demos.")
         }
     }
     
-    // MARK: - Actions
+    // MARK: - View Components
     
-    private func toggleBluetooth() {
-        var preferences = dataManager.userPreferences
-        preferences.enableBluetooth.toggle()
-        dataManager.saveUserPreferences(preferences)
-    }
-    
-    private func toggleNFC() {
-        var preferences = dataManager.userPreferences
-        preferences.enableNFC.toggle()
-        dataManager.saveUserPreferences(preferences)
-    }
-    
-    private func updateAlarms(_ enabled: Bool) {
-        var preferences = dataManager.userPreferences
-        preferences.enableAlarms = enabled
-        dataManager.saveUserPreferences(preferences)
-    }
-    
-    private func updateNotifications(_ enabled: Bool) {
-        var preferences = dataManager.userPreferences
-        preferences.enableNotifications = enabled
-        dataManager.saveUserPreferences(preferences)
-    }
-    
-    private func logout() {
-        authenticationService.logout()
-        dismiss()
-    }
-    
-    private func clearAllData() {
-        authenticationService.clearAllData()
-        dismiss()
-    }
-}
-
-// MARK: - Supporting Views
-
-struct SettingsSection<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            content
-        }
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
-    }
-}
-
-struct SettingsRow: View {
-    let title: String
-    let icon: String
-    let isEnabled: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.title3)
-                    .foregroundColor(isEnabled ? .blue : .gray)
-                    .frame(width: 24)
-                
-                Text(title)
-                    .font(.body)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                if isEnabled {
-                    Image(systemName: "checkmark")
+    private var accuracyThresholdsSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Minimum Accuracy")
                         .font(.caption)
+                    Spacer()
+                    Text("\(Int(minimumAccuracy * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                }
+
+                Slider(value: $minimumAccuracy, in: 0.88...0.99, step: 0.01)
+
+                Text("ECG authentication must meet this accuracy")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Full Access")
+                        .font(.caption)
+                    Spacer()
+                    Text("\(Int(fullAccessThreshold * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
                         .foregroundColor(.green)
                 }
-            }
-            .padding(.vertical, 4)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
 
-struct AboutView: View {
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // App Icon and Name
-                    VStack(spacing: 12) {
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.red)
-                        
-                        Text("HeartID")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        Text("Version 1.0.0")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 20)
-                    
-                    // Description
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("About HeartID")
-                            .font(.headline)
-                        
-                        Text("HeartID is a revolutionary biometric authentication system that uses your unique heart pattern for secure identity verification. Our proprietary XenonX algorithm analyzes your heart's rhythm, variability, and morphological characteristics to create a secure, encrypted identifier that stays private on your Apple Watch.")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Features
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Key Features")
-                            .font(.headline)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            SettingsFeatureRow(icon: "shield.checkered", text: "Secure biometric authentication")
-                            SettingsFeatureRow(icon: "lock.shield", text: "End-to-end encryption")
-                            SettingsFeatureRow(icon: "heart.fill", text: "PPG sensor integration")
-                            SettingsFeatureRow(icon: "waveform.path.ecg", text: "ECG pattern analysis")
-                            SettingsFeatureRow(icon: "bell", text: "Background monitoring")
-                            SettingsFeatureRow(icon: "hand.raised", text: "Privacy-first design")
-                        }
-                    }
-                    .padding()
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Privacy Notice
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Privacy & Security")
-                            .font(.headline)
-                        
-                        Text("Your heart pattern data is encrypted and stored securely on your Apple Watch. No biometric data is transmitted to external servers or shared with third parties. All processing happens locally on your device.")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(12)
-                    
+                Slider(value: $fullAccessThreshold, in: 0.70...0.95, step: 0.01)
+
+                Text("Confidence for unrestricted access")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Conditional Access")
+                        .font(.caption)
                     Spacer()
+                    Text("\(Int(conditionalAccessThreshold * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.yellow)
                 }
-                .padding()
+
+                Slider(value: $conditionalAccessThreshold, in: 0.60...0.85, step: 0.01)
+
+                Text("Limited access with step-up available")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
-            .navigationTitle("About")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+        } header: {
+            Label("Confidence Thresholds", systemImage: "slider.horizontal.3")
+                .font(.caption)
         }
     }
-}
-
-struct SettingsFeatureRow: View {
-    let icon: String
-    let text: String
     
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(.blue)
-                .frame(width: 20)
-            
-            Text(text)
-                .font(.body)
-                .foregroundColor(.primary)
-            
-            Spacer()
+    private var quickPresetsSection: some View {
+        Section {
+            Button("High Security (98%)") {
+                applyPreset(.highSecurity)
+            }
+            .font(.caption)
+
+            Button("Balanced (96%)") {
+                applyPreset(.default)
+            }
+            .font(.caption)
+
+            Button("Low Friction (88%)") {
+                applyPreset(.lowFriction)
+            }
+            .font(.caption)
+        } header: {
+            Text("Quick Presets")
+                .font(.caption)
+        }
+    }
+    
+    private var batteryManagementSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("PPG Usage")
+                        .font(.caption)
+                    Spacer()
+                    Text("\(Int(ppgUsageMultiplier * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(batteryColor(for: ppgUsageMultiplier))
+                }
+
+                Slider(value: $ppgUsageMultiplier, in: 0.2...1.0, step: 0.1)
+
+                Text("Background PPG sensor usage (lower = better battery)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Check Interval")
+                        .font(.caption)
+                    Spacer()
+                    Text("\(Int(confidenceCheckIntervalMinutes)) min")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                }
+
+                Slider(value: $confidenceCheckIntervalMinutes, in: 5...60, step: 5)
+
+                Text("Time between confidence level updates")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            // Battery Presets
+            HStack(spacing: 4) {
+                Button("Max") {
+                    applyBatteryPreset(.default)
+                }
+                .font(.caption2)
+                .buttonStyle(.bordered)
+
+                Button("Balanced") {
+                    applyBatteryPreset(.balanced)
+                }
+                .font(.caption2)
+                .buttonStyle(.bordered)
+
+                Button("Saver") {
+                    applyBatteryPreset(.powerSaver)
+                }
+                .font(.caption2)
+                .buttonStyle(.bordered)
+            }
+        } header: {
+            Label("Battery Management", systemImage: "battery.100")
+                .font(.caption)
+        } footer: {
+            Text("Lower usage and longer intervals save battery but may reduce authentication accuracy.")
+                .font(.caption2)
+        }
+    }
+    
+    private var integrationModeSection: some View {
+        Section {
+            Picker("Mode", selection: $selectedIntegrationMode) {
+                ForEach(IntegrationMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue)
+                        .tag(mode)
+                }
+            }
+            .pickerStyle(.navigationLink)
+
+            if selectedIntegrationMode.isDemo {
+                HStack {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.orange)
+                    Text("Demo mode - not connected")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+        } header: {
+            Label("Enterprise Integration", systemImage: "link")
+                .font(.caption)
+        } footer: {
+            Text("Templates are always stored locally on device with AES-256 encryption, regardless of integration mode.")
+                .font(.caption2)
+        }
+    }
+    
+    private var deviceInfoSection: some View {
+        Section {
+            NavigationLink {
+                SystemStatusView(heartIDService: heartIDService)
+            } label: {
+                HStack {
+                    Label("System Status", systemImage: "chart.bar.doc.horizontal")
+                        .font(.caption)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            HStack {
+                Text("Enrollment Status")
+                    .font(.caption)
+                Spacer()
+                Text(enrollmentStatusText)
+                    .font(.caption)
+                    .foregroundColor(enrollmentStatusColor)
+            }
+
+            HStack {
+                Text("Monitoring")
+                    .font(.caption)
+                Spacer()
+                Text(heartIDService.isMonitoring ? "Active" : "Inactive")
+                    .font(.caption)
+                    .foregroundColor(heartIDService.isMonitoring ? .green : .secondary)
+            }
+        } header: {
+            Text("Status")
+                .font(.caption)
+        }
+    }
+    
+    private var dangerZoneSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showingUnenrollConfirmation = true
+            } label: {
+                Label("Unenroll & Delete Template", systemImage: "trash")
+                    .font(.caption)
+            }
+
+            Button(role: .destructive) {
+                showingFactoryResetConfirmation = true
+            } label: {
+                Label("Factory Reset (All Data)", systemImage: "arrow.counterclockwise")
+                    .font(.caption)
+            }
+
+            Button {
+                showingDemoResetConfirmation = true
+            } label: {
+                Label("Demo Reset (Keep Settings)", systemImage: "play.circle")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+        } header: {
+            Text("Danger Zone")
+                .font(.caption)
+        } footer: {
+            Text("Factory Reset: Wipes all data with secure AES-256 key deletion. Demo Reset: Keeps thresholds/settings for quick re-enrollment.")
+                .font(.caption2)
+        }
+    }
+
+    // MARK: - Computed Properties
+
+    private var enrollmentStatusText: String {
+        switch heartIDService.enrollmentState {
+        case .enrolled:
+            return "Enrolled"
+        case .enrolling:
+            return "Enrolling..."
+        case .notEnrolled:
+            return "Not Enrolled"
+        }
+    }
+
+    private var enrollmentStatusColor: Color {
+        switch heartIDService.enrollmentState {
+        case .enrolled:
+            return .green
+        case .enrolling:
+            return .yellow
+        case .notEnrolled:
+            return .red
+        }
+    }
+
+    // MARK: - Actions
+
+    private func saveSettings() {
+        let newThresholds = ConfidenceThresholds(
+            fullAccess: fullAccessThreshold,
+            conditionalAccess: conditionalAccessThreshold,
+            requireStepUp: conditionalAccessThreshold,
+            minimumAccuracy: minimumAccuracy
+        )
+
+        let newBatterySettings = BatteryManagementSettings(
+            ppgUsageMultiplier: ppgUsageMultiplier,
+            confidenceCheckIntervalMinutes: confidenceCheckIntervalMinutes
+        )
+
+        heartIDService.updateThresholds(newThresholds)
+        heartIDService.setIntegrationMode(selectedIntegrationMode)
+
+        Task {
+            await heartIDService.updateBatterySettings(newBatterySettings)
+        }
+
+        print("✅ Settings saved - Min accuracy: \(Int(minimumAccuracy * 100))%, Mode: \(selectedIntegrationMode.rawValue)")
+    }
+
+    private func applyPreset(_ preset: ConfidenceThresholds) {
+        minimumAccuracy = preset.minimumAccuracy
+        fullAccessThreshold = preset.fullAccess
+        conditionalAccessThreshold = preset.conditionalAccess
+    }
+
+    private func applyBatteryPreset(_ preset: BatteryManagementSettings) {
+        ppgUsageMultiplier = preset.ppgUsageMultiplier
+        confidenceCheckIntervalMinutes = preset.confidenceCheckIntervalMinutes
+    }
+
+    private func batteryColor(for usage: Double) -> Color {
+        if usage >= 0.8 {
+            return .red
+        } else if usage >= 0.5 {
+            return .orange
+        } else {
+            return .green
         }
     }
 }
 
 #Preview {
-    SettingsView()
-        .environmentObject(AuthenticationService())
-        .environmentObject(DataManager())
-        .environmentObject(BackgroundTaskService())
-        // .environmentObject(WatchConnectivityService())  // Temporarily disabled
+    SettingsView(heartIDService: HeartIDService())
 }
-
-
