@@ -7,12 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FB45EF0B2EC2EBC400758DFE /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF0A2EC2EBC400758DFE /* Auth */; };
-		FB45EF0D2EC2EBC400758DFE /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF0C2EC2EBC400758DFE /* Functions */; };
-		FB45EF0F2EC2EBC400758DFE /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF0E2EC2EBC400758DFE /* PostgREST */; };
-		FB45EF112EC2EBC400758DFE /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF102EC2EBC400758DFE /* Realtime */; };
-		FB45EF132EC2EBC400758DFE /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF122EC2EBC400758DFE /* Storage */; };
-		FB45EF152EC2EBC400758DFE /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FB45EF142EC2EBC400758DFE /* Supabase */; };
 		FB45EF182EC2EC0900758DFE /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */; };
 		FB45EF192EC2EC0900758DFE /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF172EC2EC0900758DFE /* CoreData.framework */; };
 		FB45EF1A2EC2EC2200758DFE /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */; };
@@ -182,7 +176,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FB45EF132EC2EBC400758DFE /* Storage in Frameworks */,
 				FB525B152EBC74F30058DF45 /* (null) in Frameworks */,
 				FB45EF1A2EC2EC2200758DFE /* CoreBluetooth.framework in Frameworks */,
 				FB525B142EBC74F30058DF45 /* (null) in Frameworks */,
@@ -190,16 +183,11 @@
 				FB8D52292EC6370800E843E4 /* WatchConnectivity.framework in Frameworks */,
 				FB45EF282EC2ED3100758DFE /* CryptoKit.framework in Frameworks */,
 				FB45EF272EC2ED3100758DFE /* CoreNFC.framework in Frameworks */,
-				FB45EF0D2EC2EBC400758DFE /* Functions in Frameworks */,
-				FB45EF0F2EC2EBC400758DFE /* PostgREST in Frameworks */,
 				FB45EF192EC2EC0900758DFE /* CoreData.framework in Frameworks */,
 				FB45EF2A2EC2ED3100758DFE /* CoreML.framework in Frameworks */,
 				FB525D5C2EBD275A0058DF45 /* SwiftUI.framework in Frameworks */,
-				FB45EF0B2EC2EBC400758DFE /* Auth in Frameworks */,
 				FB45EF2E2EC2F11800758DFE /* MSAL in Frameworks */,
-				FB45EF112EC2EBC400758DFE /* Realtime in Frameworks */,
 				FB45EF292EC2ED3100758DFE /* CryptoTokenKit.framework in Frameworks */,
-				FB45EF152EC2EBC400758DFE /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -341,12 +329,6 @@
 			);
 			name = CardiacID;
 			packageProductDependencies = (
-				FB45EF0A2EC2EBC400758DFE /* Auth */,
-				FB45EF0C2EC2EBC400758DFE /* Functions */,
-				FB45EF0E2EC2EBC400758DFE /* PostgREST */,
-				FB45EF102EC2EBC400758DFE /* Realtime */,
-				FB45EF122EC2EBC400758DFE /* Storage */,
-				FB45EF142EC2EBC400758DFE /* Supabase */,
 				FB45EF2D2EC2F11800758DFE /* MSAL */,
 			);
 			productName = CardiacID;
@@ -1167,36 +1149,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		FB45EF0A2EC2EBC400758DFE /* Auth */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Auth;
-		};
-		FB45EF0C2EC2EBC400758DFE /* Functions */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Functions;
-		};
-		FB45EF0E2EC2EBC400758DFE /* PostgREST */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = PostgREST;
-		};
-		FB45EF102EC2EBC400758DFE /* Realtime */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Realtime;
-		};
-		FB45EF122EC2EBC400758DFE /* Storage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Storage;
-		};
-		FB45EF142EC2EBC400758DFE /* Supabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FB525D402EBD23DC0058DF45 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
-		};
 		FB45EF2D2EC2F11800758DFE /* MSAL */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB45EF2C2EC2F11800758DFE /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
