@@ -269,28 +269,28 @@ struct BiometricAuthDashboardView: View {
                 .foregroundColor(.white)
 
             VStack(spacing: 12) {
-                StatusRow(
+                BiometricStatusRow(
                     icon: "applewatch",
                     label: "Watch Status",
                     value: viewModel.isWatchOnWrist ? "On Wrist" : "Not Detected",
                     isActive: viewModel.isWatchOnWrist
                 )
 
-                StatusRow(
+                BiometricStatusRow(
                     icon: "waveform.path.ecg",
                     label: "PPG Monitoring",
                     value: viewModel.isMonitoring ? "Active" : "Inactive",
                     isActive: viewModel.isMonitoring
                 )
 
-                StatusRow(
+                BiometricStatusRow(
                     icon: "lock.shield.fill",
                     label: "Security Level",
                     value: viewModel.securityLevelText,
                     isActive: true
                 )
 
-                StatusRow(
+                BiometricStatusRow(
                     icon: "clock.fill",
                     label: "Next Check",
                     value: viewModel.nextCheckTime ?? "Calculating...",
@@ -399,7 +399,7 @@ struct StatBox: View {
     }
 }
 
-struct StatusRow: View {
+struct BiometricStatusRow: View {
     let icon: String
     let label: String
     let value: String

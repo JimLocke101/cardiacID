@@ -166,14 +166,26 @@ struct EnterpriseAuthView: View {
         entraIDService.authenticate()
         
         // Send authentication request to watch
-        watchConnectivity.sendEntraIDAuthRequest()
+        Task {
+            await watchConnectivity.requestEntraIDAuthentication()
+        }
     }
     
     private func signOut() {
         entraIDService.signOut()
         
         // Send sign out to watch
-        watchConnectivity.sendEntraIDAuthResult(success: false, token: nil)
+        Task {
+            let result = WatchAuthenticationResult(
+                isSuccess: false,
+                token: nil,
+                refreshToken: nil,
+                expiresAt: nil,
+                errorMessage: "User signed out",
+                method: "entra_id"
+            )
+            await watchConnectivity.sendEntraIDAuthResult(result)
+        }
     }
 }
 

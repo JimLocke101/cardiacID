@@ -143,7 +143,7 @@ struct ApplicationCard: View {
 
             // Action Buttons
             HStack(spacing: 12) {
-                ActionButton(
+                ApplicationActionButton(
                     title: "Configure",
                     icon: "gearshape.fill",
                     color: colors.accent
@@ -151,7 +151,7 @@ struct ApplicationCard: View {
                     // TODO: Navigate to app configuration
                 }
 
-                ActionButton(
+                ApplicationActionButton(
                     title: "Test Auth",
                     icon: "checkmark.shield.fill",
                     color: .green
@@ -204,9 +204,9 @@ struct DetailRow: View {
     }
 }
 
-// MARK: - Action Button
+// MARK: - Application Action Button
 
-struct ActionButton: View {
+struct ApplicationActionButton: View {
     let title: String
     let icon: String
     let color: Color

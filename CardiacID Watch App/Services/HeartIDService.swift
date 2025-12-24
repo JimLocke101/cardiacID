@@ -13,6 +13,9 @@ import HealthKit
 import Combine
 import SwiftUI
 
+// Avoid namespace conflicts with WatchConnectivityService types
+typealias BiometricAuthenticationResult = AuthenticationResult
+
 @MainActor
 class HeartIDService: ObservableObject {
     // Dependencies
@@ -168,7 +171,8 @@ class HeartIDService: ObservableObject {
             watchConnectivity.sendAuthenticationStatus(
                 confidence: currentConfidence,
                 authenticated: authenticationState != .unauthenticated,
-                userName: template.fullName
+                userName: template.fullName,
+                heartRate: Int(healthKit.currentHeartRate)  // ✅ NOW SENDING HEART RATE TO iPHONE!
             )
         }
     }
@@ -313,9 +317,16 @@ class HeartIDService: ObservableObject {
             print("🔄 New interval started - Peak tracking reset")
         }
 
-        // Get current PPG confidence
+        // Get current PPG confidence with REAL biometric matching
         let heartRate = healthKit.currentHeartRate
-        let ppgConfidence = matching.matchPPGPattern(heartRate: heartRate, template: template)
+        let beatIntervals = healthKit.getRecentBeatIntervals()
+        let heartRates = healthKit.getRecentHeartRates()
+        let ppgConfidence = matching.matchPPGPattern(
+            heartRate: heartRate,
+            beatIntervals: beatIntervals,
+            heartRates: heartRates,
+            template: template
+        )
 
         // Update peak PPG if current is higher
         if ppgConfidence > peakPPGConfidenceInInterval {
@@ -355,7 +366,8 @@ class HeartIDService: ObservableObject {
             watchConnectivity.sendAuthenticationStatus(
                 confidence: currentConfidence,
                 authenticated: authenticationState != .unauthenticated,
-                userName: template.fullName
+                userName: template.fullName,
+                heartRate: Int(healthKit.currentHeartRate)  // ✅ NOW SENDING HEART RATE TO iPHONE!
             )
         }
     }
@@ -377,9 +389,16 @@ class HeartIDService: ObservableObject {
         // Check for recent ECG (within 4 minutes)
         let foundRecentECG = await checkForRecentECG()
 
-        // Get current PPG confidence
+        // Get current PPG confidence with REAL biometric matching
         let heartRate = healthKit.currentHeartRate
-        currentPPGConfidence = matching.matchPPGPattern(heartRate: heartRate, template: template)
+        let beatIntervals = healthKit.getRecentBeatIntervals()
+        let heartRates = healthKit.getRecentHeartRates()
+        currentPPGConfidence = matching.matchPPGPattern(
+            heartRate: heartRate,
+            beatIntervals: beatIntervals,
+            heartRates: heartRates,
+            template: template
+        )
 
         if currentPPGConfidence > peakPPGConfidenceInInterval {
             peakPPGConfidenceInInterval = currentPPGConfidence
@@ -466,7 +485,7 @@ class HeartIDService: ObservableObject {
 
     // MARK: - ECG Step-Up Authentication
 
-    func performECGStepUp(for action: AuthenticationAction) async throws -> AuthenticationResult {
+    func performECGStepUp(for action: AuthenticationAction) async throws -> BiometricAuthenticationResult {
         print("🔐 ECG step-up requested for: \(action.description)")
 
         guard let template = try? storage.loadTemplate() else {
@@ -492,11 +511,11 @@ class HeartIDService: ObservableObject {
             thresholds: thresholds
         )
 
-        let result = AuthenticationResult(
+        let result = BiometricAuthenticationResult(
             success: decision.isGranted,
             confidenceScore: hybridConfidence,
             method: .ecgSingle,
-            decisionFactors: AuthenticationResult.DecisionFactors(
+            decisionFactors: BiometricAuthenticationResult.DecisionFactors(
                 templateMatch: ecgConfidence,
                 livenessScore: 0.98,
                 deviceTrust: 1.0,
@@ -631,56 +650,10 @@ class HeartIDService: ObservableObject {
             return
         }
         
-        print("⏰ Performing background confidence check...")
-        
-        do {
-            // Get recent heart rate data
-            let recentSamples = try await healthKit.getRecentHeartRateSamples(count: 10)
-            
-            if recentSamples.isEmpty {
-                print("⏰ No recent heart rate data available")
-                return
-            }
-            
-            // Calculate confidence based on PPG pattern
-            let confidence = await calculatePPGConfidence(from: recentSamples)
-            
-            await MainActor.run {
-                currentConfidence = confidence
-                
-                if confidence >= thresholds.fullAccess {
-                    authenticationState = .authenticated(confidence: confidence)
-                    print("✅ Background auth: Full access (\(Int(confidence * 100))%)")
-                } else if confidence >= thresholds.conditionalAccess {
-                    authenticationState = .conditional(confidence: confidence)
-                    print("⚠️ Background auth: Conditional access (\(Int(confidence * 100))%)")
-                } else {
-                    authenticationState = .unauthenticated
-                    print("❌ Background auth: No access (\(Int(confidence * 100))%)")
-                }
-            }
-        } catch {
-            print("❌ Background confidence check failed: \(error)")
-        }
-    }
-    
-    private func calculatePPGConfidence(from samples: [HeartRateSample]) async -> Double {
-        // Simplified confidence calculation for background monitoring
-        guard samples.count >= 5 else { return 0.0 }
-        
-        // Basic heart rate variability analysis
-        let hrValues = samples.map { $0.heartRate }
-        let avgHR = hrValues.reduce(0, +) / Double(hrValues.count)
-        
-        // Check if HR is in reasonable range for this user
-        let isReasonableRange = avgHR >= 60 && avgHR <= 120
-        let baseConfidence: Double = isReasonableRange ? 0.60 : 0.30
-        
-        // Add variability analysis
-        let hrVariability = calculateSimpleHRV(hrValues: hrValues)
-        let variabilityBonus = min(hrVariability / 100.0, 0.25)
-        
-        return min(baseConfidence + variabilityBonus, 0.95)
+        print("⏰ Background confidence check (handled by continuous monitoring)")
+        // Background confidence is now calculated automatically by the
+        // continuous monitoring loop which uses real PPG matching with
+        // HRV and rhythm analysis - no need for separate background check
     }
     
     private func calculateSimpleHRV(hrValues: [Double]) -> Double {

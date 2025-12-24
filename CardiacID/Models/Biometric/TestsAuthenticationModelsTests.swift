@@ -5,14 +5,12 @@
 //  Created by CardiacID Team on 12/23/25.
 //
 
-import Testing
+import XCTest
 import Foundation
 
-@Suite("Authentication Models Tests")
-struct AuthenticationModelsTests {
+class AuthenticationModelsTests: XCTestCase {
     
-    @Test("AuthenticationResult initializes correctly")
-    func authenticationResultInitialization() throws {
+    func testAuthenticationResultInitialization() throws {
         let method: AuthenticationResult.AuthenticationMethod = .ecgSingle
         let factors = AuthenticationResult.DecisionFactors(
             templateMatch: 0.95,
@@ -32,33 +30,30 @@ struct AuthenticationModelsTests {
             requiresStepUp: false
         )
         
-        #expect(result.success == true)
-        #expect(result.confidenceScore == 0.90)
-        #expect(result.method == .ecgSingle)
-        #expect(result.requiresStepUp == false)
+        XCTAssertTrue(result.success)
+        XCTAssertEqual(result.confidenceScore, 0.90, accuracy: 0.01)
+        XCTAssertEqual(result.method, .ecgSingle)
+        XCTAssertFalse(result.requiresStepUp)
     }
     
-    @Test("ConfidenceThresholds default values are correct")
-    func confidenceThresholdsDefaults() throws {
+    func testConfidenceThresholdsDefaults() throws {
         let thresholds = ConfidenceThresholds.default
         
-        #expect(thresholds.fullAccess == 0.85)
-        #expect(thresholds.conditionalAccess == 0.75)
-        #expect(thresholds.requireStepUp == 0.75)
-        #expect(thresholds.minimumAccuracy == 0.96)
+        XCTAssertEqual(thresholds.fullAccess, 0.85, accuracy: 0.01)
+        XCTAssertEqual(thresholds.conditionalAccess, 0.75, accuracy: 0.01)
+        XCTAssertEqual(thresholds.requireStepUp, 0.75, accuracy: 0.01)
+        XCTAssertEqual(thresholds.minimumAccuracy, 0.96, accuracy: 0.01)
     }
     
-    @Test("BatteryManagementSettings calculates intervals correctly")
-    func batteryManagementSettingsCalculation() throws {
+    func testBatteryManagementSettingsCalculation() throws {
         let settings = BatteryManagementSettings.default
         let expectedInterval = 15.0 * 60.0 // 15 minutes in seconds
         
-        #expect(settings.confidenceCheckInterval == expectedInterval)
-        #expect(settings.ppgUsageMultiplier == 1.0)
+        XCTAssertEqual(settings.confidenceCheckInterval, expectedInterval, accuracy: 0.1)
+        XCTAssertEqual(settings.ppgUsageMultiplier, 1.0, accuracy: 0.01)
     }
     
-    @Test("AuthenticationSession initializes with correct defaults")
-    func authenticationSessionInitialization() throws {
+    func testAuthenticationSessionInitialization() throws {
         let userId = "test-user-123"
         let confidenceScore = 0.85
         let authMethod = "heart_pattern"
@@ -69,44 +64,40 @@ struct AuthenticationModelsTests {
             authMethod: authMethod
         )
         
-        #expect(session.userId == userId)
-        #expect(session.confidenceScore == confidenceScore)
-        #expect(session.authMethod == authMethod)
-        #expect(session.isActive == true)
-        #expect(session.backgroundVerificationCount == 0)
-        #expect(session.locationConsistent == true)
-        #expect(session.behaviorNormal == true)
-        #expect(session.deviceTrusted == true)
+        XCTAssertEqual(session.userId, userId)
+        XCTAssertEqual(session.confidenceScore, confidenceScore, accuracy: 0.01)
+        XCTAssertEqual(session.authMethod, authMethod)
+        XCTAssertTrue(session.isActive)
+        XCTAssertEqual(session.backgroundVerificationCount, 0)
+        XCTAssertTrue(session.locationConsistent)
+        XCTAssertTrue(session.behaviorNormal)
+        XCTAssertTrue(session.deviceTrusted)
     }
     
-    @Test("IntegrationMode enum has correct cases")
-    func integrationModeEnum() throws {
+    func testIntegrationModeEnum() throws {
         let allCases = IntegrationMode.allCases
         
-        #expect(allCases.contains(.local))
-        #expect(allCases.contains(.entraID))
-        #expect(allCases.contains(.pacs))
-        #expect(allCases.contains(.healthcare))
-        #expect(allCases.contains(.custom))
+        XCTAssertTrue(allCases.contains(.local))
+        XCTAssertTrue(allCases.contains(.entraID))
+        XCTAssertTrue(allCases.contains(.pacs))
+        XCTAssertTrue(allCases.contains(.healthcare))
+        XCTAssertTrue(allCases.contains(.custom))
         
         // Test that local mode is not demo
-        #expect(IntegrationMode.local.isDemo == false)
+        XCTAssertFalse(IntegrationMode.local.isDemo)
     }
     
-    @Test("ConfidenceDegradationConstants have expected values")
-    func confidenceDegradationConstants() throws {
-        #expect(ConfidenceDegradationConstants.ecgDegradationRate == 0.00001)
-        #expect(ConfidenceDegradationConstants.degradationInterval == 360.0)
-        #expect(ConfidenceDegradationConstants.recentECGBufferTime == 240.0)
-        #expect(ConfidenceDegradationConstants.minimumConfidenceFloor == 0.70)
+    func testConfidenceDegradationConstants() throws {
+        XCTAssertEqual(ConfidenceDegradationConstants.ecgDegradationRate, 0.00001, accuracy: 0.00001)
+        XCTAssertEqual(ConfidenceDegradationConstants.degradationInterval, 360.0, accuracy: 0.1)
+        XCTAssertEqual(ConfidenceDegradationConstants.recentECGBufferTime, 240.0, accuracy: 0.1)
+        XCTAssertEqual(ConfidenceDegradationConstants.minimumConfidenceFloor, 0.70, accuracy: 0.01)
     }
 }
 
-@Suite("WatchAuthenticationResult Tests")
-struct WatchAuthenticationResultTests {
+class WatchAuthenticationResultTests: XCTestCase {
     
-    @Test("WatchAuthenticationResult validates correctly")
-    func watchAuthResultValidation() throws {
+    func testWatchAuthResultValidation() throws {
         // Test valid result
         let validResult = WatchAuthenticationResult(
             isSuccess: true,
@@ -117,7 +108,7 @@ struct WatchAuthenticationResultTests {
             method: "entra_id"
         )
         
-        #expect(validResult.isValid == true)
+        XCTAssertTrue(validResult.isValid)
         
         // Test invalid result - no token
         let invalidResult = WatchAuthenticationResult(
@@ -129,7 +120,7 @@ struct WatchAuthenticationResultTests {
             method: "entra_id"
         )
         
-        #expect(invalidResult.isValid == false)
+        XCTAssertFalse(invalidResult.isValid)
         
         // Test expired result
         let expiredResult = WatchAuthenticationResult(
@@ -141,11 +132,10 @@ struct WatchAuthenticationResultTests {
             method: "entra_id"
         )
         
-        #expect(expiredResult.isValid == false)
+        XCTAssertFalse(expiredResult.isValid)
     }
     
-    @Test("WatchAuthenticationResult handles empty tokens")
-    func watchAuthResultEmptyToken() throws {
+    func testWatchAuthResultEmptyToken() throws {
         let result = WatchAuthenticationResult(
             isSuccess: true,
             token: "",
@@ -155,15 +145,13 @@ struct WatchAuthenticationResultTests {
             method: "entra_id"
         )
         
-        #expect(result.isValid == false)
+        XCTAssertFalse(result.isValid)
     }
 }
 
-@Suite("Authentication Action Tests")
-struct AuthenticationActionTests {
+class AuthenticationActionTests: XCTestCase {
     
-    @Test("AuthenticationAction creates correctly")
-    func authenticationActionCreation() throws {
+    func testAuthenticationActionCreation() throws {
         let action = AuthenticationAction(
             actionType: .doorAccess,
             requiredConfidence: 0.85,
@@ -171,9 +159,9 @@ struct AuthenticationActionTests {
             description: "Access to secure door"
         )
         
-        #expect(action.actionType == .doorAccess)
-        #expect(action.requiredConfidence == 0.85)
-        #expect(action.requiresECG == true)
-        #expect(action.description == "Access to secure door")
+        XCTAssertEqual(action.actionType, .doorAccess)
+        XCTAssertEqual(action.requiredConfidence, 0.85, accuracy: 0.01)
+        XCTAssertTrue(action.requiresECG)
+        XCTAssertEqual(action.description, "Access to secure door")
     }
 }

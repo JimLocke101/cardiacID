@@ -138,10 +138,12 @@ struct PasswordlessAuthView: View {
         
         // Send enrollment request to watch
         if let heartPatternData = try? JSONEncoder().encode(heartPattern) {
-            watchConnectivity.sendPasswordlessAuthRequest(
-                method: method.type.rawValue,
-                heartPattern: heartPatternData
-            )
+            Task {
+                await watchConnectivity.sendPasswordlessAuthRequest(
+                    method: method.type.rawValue,
+                    heartPattern: heartPatternData
+                )
+            }
         }
         
         // Simulate enrollment delay
@@ -176,10 +178,12 @@ struct PasswordlessAuthView: View {
         
         // Send authentication request to watch
         if let heartPatternData = try? JSONEncoder().encode(heartPattern) {
-            watchConnectivity.sendPasswordlessAuthRequest(
-                method: heartIDMethod.type.rawValue,
-                heartPattern: heartPatternData
-            )
+            Task {
+                await watchConnectivity.sendPasswordlessAuthRequest(
+                    method: heartIDMethod.type.rawValue,
+                    heartPattern: heartPatternData
+                )
+            }
         }
     }
 }

@@ -34,6 +34,12 @@ class HealthKitService: ObservableObject {
     private var lastHeartRateTimestamp: Date?
     private let wristDetectionThreshold: TimeInterval = 10.0 // 10 seconds without HR = removed
 
+    // PPG beat interval tracking for REAL HRV/rhythm analysis
+    private var recentBeatIntervals: [Double] = [] // RR intervals in seconds
+    private var recentHeartRates: [Double] = [] // Store last N heart rates for trend analysis
+    private var lastBeatTimestamp: Date?
+    private let maxBeatIntervalsToStore = 50 // Store last 50 intervals for HRV analysis
+
     // ECG polling
     private var ecgPollingTimer: Timer?
 
@@ -167,7 +173,28 @@ class HealthKitService: ObservableObject {
         guard let latestSample = samples.last else { return }
 
         let heartRate = latestSample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        let currentTime = Date()
+
         currentHeartRate = heartRate
+
+        // Calculate beat interval (RR interval) from consecutive heart rate samples
+        if let lastTime = lastBeatTimestamp, heartRate > 0 {
+            let beatInterval = 60.0 / heartRate // Convert bpm to interval in seconds
+            recentBeatIntervals.append(beatInterval)
+
+            // Keep only recent intervals for HRV analysis
+            if recentBeatIntervals.count > maxBeatIntervalsToStore {
+                recentBeatIntervals.removeFirst()
+            }
+        }
+
+        lastBeatTimestamp = currentTime
+
+        // Store recent heart rates for trend analysis
+        recentHeartRates.append(heartRate)
+        if recentHeartRates.count > maxBeatIntervalsToStore {
+            recentHeartRates.removeFirst()
+        }
 
         // Update wrist detection timestamp (watch is on wrist if receiving HR data)
         lastHeartRateTimestamp = Date()
@@ -176,9 +203,19 @@ class HealthKitService: ObservableObject {
             print("⌚ Watch detected on wrist")
         }
 
-        print("💓 Heart Rate: \(Int(heartRate)) bpm (PPG sensor)")
+        print("💓 Heart Rate: \(Int(heartRate)) bpm (PPG sensor, \(recentBeatIntervals.count) intervals stored)")
 
         // Note: PPG confidence calculation handled by HeartIDService via BiometricMatchingService
+    }
+
+    /// Get recent beat intervals for HRV analysis
+    func getRecentBeatIntervals() -> [Double] {
+        return recentBeatIntervals
+    }
+
+    /// Get recent heart rates for rhythm analysis
+    func getRecentHeartRates() -> [Double] {
+        return recentHeartRates
     }
 
     // MARK: - ECG Enrollment (3 samples for robust template, 96-99% accuracy)

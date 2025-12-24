@@ -152,19 +152,20 @@ class WatchConnectivityService: NSObject, ObservableObject {
         }
     }
 
-    /// Send authentication status update to iOS app
+    /// Send authentication status update to iOS app with heart rate
     /// Called by HeartIDService during continuous authentication
-    func sendAuthenticationStatus(confidence: Double, authenticated: Bool, userName: String) {
+    func sendAuthenticationStatus(confidence: Double, authenticated: Bool, userName: String, heartRate: Int = 0) {
         let message: [String: Any] = [
             "message_type": "auth_status_update",
             "confidence": confidence,
             "authenticated": authenticated,
             "user_name": userName,
+            "heart_rate": heartRate,  // ✅ NOW SENDING HEART RATE!
             "timestamp": Date().timeIntervalSince1970
         ]
         sendMessage(message) { success in
             if success {
-                print("✅ Watch: Sent auth status to iOS - \(userName): \(Int(confidence * 100))%")
+                print("✅ Watch: Sent auth status to iOS - \(userName): \(Int(confidence * 100))%, HR: \(heartRate) bpm")
             } else {
                 print("❌ Watch: Failed to send auth status to iOS")
             }
