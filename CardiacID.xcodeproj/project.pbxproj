@@ -398,11 +398,6 @@
 			);
 			name = "CardiacID Watch App";
 			packageProductDependencies = (
-				FB525D612EBD2A790058DF45 /* Auth */,
-				FB525D632EBD2A790058DF45 /* Functions */,
-				FB525D652EBD2A790058DF45 /* PostgREST */,
-				FB525D672EBD2A790058DF45 /* Realtime */,
-				FB525D692EBD2A790058DF45 /* Storage */,
 			);
 			productName = "CardiacID Watch App";
 			productReference = FBF0C0BC2E70DF25005C425B /* CardiacID Watch App.app */;
@@ -839,6 +834,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Connecting to Bluetooth";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "Connecting to Bluetooth Continuiously";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -879,6 +875,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Connecting to Bluetooth";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "Connecting to Bluetooth Continuiously";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
