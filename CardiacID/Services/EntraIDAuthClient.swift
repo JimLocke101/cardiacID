@@ -7,8 +7,11 @@
 //
 
 import Foundation
-#if canImport(UIKit)
+#if canImport(UIKit) && !os(watchOS)
 import UIKit
+#endif
+#if canImport(WatchKit)
+import WatchKit
 #endif
 #if canImport(MSAL)
 import MSAL
@@ -321,7 +324,7 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
         }
 
         // Get presenting view controller
-        #if canImport(UIKit)
+        #if canImport(UIKit) && !os(watchOS)
         guard let windowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let viewController = await windowScene.windows.first?.rootViewController else {
             throw EntraIDError.noViewController
@@ -362,6 +365,13 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
                 self.currentUser = user
                 self.isAuthenticated = true
             }
+
+            // Notify other components of successful authentication
+            NotificationCenter.default.post(
+                name: .authenticationSucceeded,
+                object: nil,
+                userInfo: ["user": user]
+            )
 
             print("✅ EntraID sign in successful: \(user.email)")
             return user

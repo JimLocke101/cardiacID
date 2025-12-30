@@ -7,6 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FB16D8D22F02623A002EB338 /* Package 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8D12F02623A002EB338 /* Package 2.swift */; };
+		FB16D8D42F026258002EB338 /* SharedAuthTokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8D32F026258002EB338 /* SharedAuthTokenManager.swift */; };
+		FB16D8D62F02627C002EB338 /* WatchAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8D52F02627C002EB338 /* WatchAuthService.swift */; };
+		FB16D8D82F0262AC002EB338 /* UnifiedAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8D72F0262AC002EB338 /* UnifiedAuthService.swift */; };
+		FB16D8DA2F0262BD002EB338 /* iOSAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8D92F0262BD002EB338 /* iOSAuthView.swift */; };
+		FB16D8DC2F0262C8002EB338 /* WatchAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8DB2F0262C8002EB338 /* WatchAuthView.swift */; };
+		FB16D8DE2F02635F002EB338 /* PlatformAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8DD2F02635F002EB338 /* PlatformAuthService.swift */; };
+		FB16D8E22F0263E0002EB338 /* UnifiedAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8E12F0263E0002EB338 /* UnifiedAuthView.swift */; };
+		FB16D8E42F0263F0002EB338 /* MSALConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8E32F0263F0002EB338 /* MSALConfiguration.swift */; };
+		FB16D8E62F026413002EB338 /* BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8E52F026413002EB338 /* BuildConfiguration.swift */; };
+		FB16D8E82F02643B002EB338 /* CardiacIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16D8E72F02643B002EB338 /* CardiacIDTests.swift */; };
+		FB16D8EA2F02645E002EB338 /* IMPLEMENTATION_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = FB16D8E92F02645E002EB338 /* IMPLEMENTATION_GUIDE.md */; };
+		FB16DB852F027B3A002EB338 /* clean_build.sh in Resources */ = {isa = PBXBuildFile; fileRef = FB16DB842F027B3A002EB338 /* clean_build.sh */; };
+		FB16DB892F027BB6002EB338 /* BUILD_FIX_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = FB16DB882F027BB6002EB338 /* BUILD_FIX_GUIDE.md */; };
+		FB16DB8B2F027BD0002EB338 /* SimpleAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16DB8A2F027BD0002EB338 /* SimpleAuthService.swift */; };
+		FB16DB8D2F027BF0002EB338 /* SimpleAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB16DB8C2F027BF0002EB338 /* SimpleAuthView.swift */; };
+		FB16DB8F2F027C13002EB338 /* fix_build.sh in Resources */ = {isa = PBXBuildFile; fileRef = FB16DB8E2F027C13002EB338 /* fix_build.sh */; };
 		FB45EF182EC2EC0900758DFE /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */; };
 		FB45EF192EC2EC0900758DFE /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF172EC2EC0900758DFE /* CoreData.framework */; };
 		FB45EF1A2EC2EC2200758DFE /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */; };
@@ -101,6 +118,23 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FB16D8D12F02623A002EB338 /* Package 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Package 2.swift"; sourceTree = "<group>"; };
+		FB16D8D32F026258002EB338 /* SharedAuthTokenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedAuthTokenManager.swift; sourceTree = "<group>"; };
+		FB16D8D52F02627C002EB338 /* WatchAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAuthService.swift; sourceTree = "<group>"; };
+		FB16D8D72F0262AC002EB338 /* UnifiedAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedAuthService.swift; sourceTree = "<group>"; };
+		FB16D8D92F0262BD002EB338 /* iOSAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSAuthView.swift; sourceTree = "<group>"; };
+		FB16D8DB2F0262C8002EB338 /* WatchAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAuthView.swift; sourceTree = "<group>"; };
+		FB16D8DD2F02635F002EB338 /* PlatformAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformAuthService.swift; sourceTree = "<group>"; };
+		FB16D8E12F0263E0002EB338 /* UnifiedAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedAuthView.swift; sourceTree = "<group>"; };
+		FB16D8E32F0263F0002EB338 /* MSALConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MSALConfiguration.swift; sourceTree = "<group>"; };
+		FB16D8E52F026413002EB338 /* BuildConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildConfiguration.swift; sourceTree = "<group>"; };
+		FB16D8E72F02643B002EB338 /* CardiacIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardiacIDTests.swift; sourceTree = "<group>"; };
+		FB16D8E92F02645E002EB338 /* IMPLEMENTATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_GUIDE.md; sourceTree = "<group>"; };
+		FB16DB842F027B3A002EB338 /* clean_build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = clean_build.sh; sourceTree = "<group>"; };
+		FB16DB882F027BB6002EB338 /* BUILD_FIX_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = BUILD_FIX_GUIDE.md; sourceTree = "<group>"; };
+		FB16DB8A2F027BD0002EB338 /* SimpleAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleAuthService.swift; sourceTree = "<group>"; };
+		FB16DB8C2F027BF0002EB338 /* SimpleAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleAuthView.swift; sourceTree = "<group>"; };
+		FB16DB8E2F027C13002EB338 /* fix_build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = fix_build.sh; sourceTree = "<group>"; };
 		FB45EF162EC2EC0900758DFE /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CoreBluetooth.framework; sourceTree = DEVELOPER_DIR; };
 		FB45EF172EC2EC0900758DFE /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/CoreData.framework; sourceTree = DEVELOPER_DIR; };
 		FB45EF1E2EC2ED3100758DFE /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/MobileCoreServices.framework; sourceTree = DEVELOPER_DIR; };
@@ -138,9 +172,22 @@
 		FBF0C0D52E70DF27005C425B /* CardiacID Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "CardiacID Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FB84559B2F038909009DF160 /* Exceptions for "CardiacID" folder in "CardiacID Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Services/SecureCredentialManager.swift,
+			);
+			target = FBF0C0BB2E70DF25005C425B /* CardiacID Watch App */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FBF0C09B2E70DF24005C425B /* CardiacID */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FB84559B2F038909009DF160 /* Exceptions for "CardiacID" folder in "CardiacID Watch App" target */,
+			);
 			path = CardiacID;
 			sourceTree = "<group>";
 		};
@@ -290,6 +337,23 @@
 				FBF0C0D82E70DF27005C425B /* CardiacID Watch AppUITests */,
 				FB525D322EBC7E7B0058DF45 /* Frameworks */,
 				FBF0C09A2E70DF24005C425B /* Products */,
+				FB16D8D12F02623A002EB338 /* Package 2.swift */,
+				FB16D8D32F026258002EB338 /* SharedAuthTokenManager.swift */,
+				FB16D8D52F02627C002EB338 /* WatchAuthService.swift */,
+				FB16D8D72F0262AC002EB338 /* UnifiedAuthService.swift */,
+				FB16D8D92F0262BD002EB338 /* iOSAuthView.swift */,
+				FB16D8DB2F0262C8002EB338 /* WatchAuthView.swift */,
+				FB16D8DD2F02635F002EB338 /* PlatformAuthService.swift */,
+				FB16D8E12F0263E0002EB338 /* UnifiedAuthView.swift */,
+				FB16D8E32F0263F0002EB338 /* MSALConfiguration.swift */,
+				FB16D8E52F026413002EB338 /* BuildConfiguration.swift */,
+				FB16D8E72F02643B002EB338 /* CardiacIDTests.swift */,
+				FB16D8E92F02645E002EB338 /* IMPLEMENTATION_GUIDE.md */,
+				FB16DB842F027B3A002EB338 /* clean_build.sh */,
+				FB16DB882F027BB6002EB338 /* BUILD_FIX_GUIDE.md */,
+				FB16DB8A2F027BD0002EB338 /* SimpleAuthService.swift */,
+				FB16DB8C2F027BF0002EB338 /* SimpleAuthView.swift */,
+				FB16DB8E2F027C13002EB338 /* fix_build.sh */,
 			);
 			sourceTree = "<group>";
 		};
@@ -398,6 +462,11 @@
 			);
 			name = "CardiacID Watch App";
 			packageProductDependencies = (
+				FB525D612EBD2A790058DF45 /* Auth */,
+				FB525D632EBD2A790058DF45 /* Functions */,
+				FB525D652EBD2A790058DF45 /* PostgREST */,
+				FB525D672EBD2A790058DF45 /* Realtime */,
+				FB525D692EBD2A790058DF45 /* Storage */,
 			);
 			productName = "CardiacID Watch App";
 			productReference = FBF0C0BC2E70DF25005C425B /* CardiacID Watch App.app */;
@@ -516,6 +585,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FB16DB852F027B3A002EB338 /* clean_build.sh in Resources */,
+				FB16DB8F2F027C13002EB338 /* fix_build.sh in Resources */,
+				FB16D8EA2F02645E002EB338 /* IMPLEMENTATION_GUIDE.md in Resources */,
+				FB16DB892F027BB6002EB338 /* BUILD_FIX_GUIDE.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -561,6 +634,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FB16D8D82F0262AC002EB338 /* UnifiedAuthService.swift in Sources */,
+				FB16D8E82F02643B002EB338 /* CardiacIDTests.swift in Sources */,
+				FB16D8D62F02627C002EB338 /* WatchAuthService.swift in Sources */,
+				FB16D8DE2F02635F002EB338 /* PlatformAuthService.swift in Sources */,
+				FB16D8E42F0263F0002EB338 /* MSALConfiguration.swift in Sources */,
+				FB16D8DC2F0262C8002EB338 /* WatchAuthView.swift in Sources */,
+				FB16D8E62F026413002EB338 /* BuildConfiguration.swift in Sources */,
+				FB16DB8B2F027BD0002EB338 /* SimpleAuthService.swift in Sources */,
+				FB16D8D22F02623A002EB338 /* Package 2.swift in Sources */,
+				FB16D8E22F0263E0002EB338 /* UnifiedAuthView.swift in Sources */,
+				FB16DB8D2F027BF0002EB338 /* SimpleAuthView.swift in Sources */,
+				FB16D8D42F026258002EB338 /* SharedAuthTokenManager.swift in Sources */,
+				FB16D8DA2F0262BD002EB338 /* iOSAuthView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -769,7 +855,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = ARGOS.CardiacID.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -802,7 +888,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.8;
 				PRODUCT_BUNDLE_IDENTIFIER = ARGOS.CardiacID.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;

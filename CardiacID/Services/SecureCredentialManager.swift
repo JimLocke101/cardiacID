@@ -1,325 +1,269 @@
 //
 //  SecureCredentialManager.swift
-//  HeartID Mobile
+//  CardiacID
 //
-//  Production-grade credential management with enhanced security
-//  Features:
-//  - Biometric-protected Keychain access
-//  - Access Control Flags (kSecAttrAccessControl)
-//  - Automatic credential validation
-//  - Secure credential injection (no hardcoded secrets)
+//  Cross-platform secure credential storage
+//  Uses Keychain on iOS and UserDefaults with encryption on watchOS
 //
 
 import Foundation
 import Security
-import LocalAuthentication
+import CryptoKit
 
-/// Secure credential storage and retrieval with biometric protection
+enum CredentialKey: String, CaseIterable {
+    case entraIDTenantID = "entra_id_tenant_id"
+    case entraIDClientID = "entra_id_client_id"
+    case entraIDAccessToken = "entra_id_access_token"
+    case entraIDRefreshToken = "entra_id_refresh_token"
+    case userProfile = "user_profile"
+    case heartIDPattern = "heart_id_pattern"
+}
+
+enum SecurityLevel {
+    case standard
+    case biometricRequired
+    case devicePasscodeRequired
+}
+
 class SecureCredentialManager {
     static let shared = SecureCredentialManager()
-
-    // MARK: - Keychain Access Group
-    private let accessGroup = "group.com.argos.heartid.credentials"
-
-    // MARK: - Credential Keys
-    enum CredentialKey: String {
-        case supabaseAPIKey = "heartid_supabase_api_key"
-        case supabaseServiceRoleKey = "heartid_supabase_service_role_key"
-        case entraIDTenantID = "heartid_entraid_tenant_id"
-        case entraIDClientID = "heartid_entraid_client_id"
-        case entraIDClientSecret = "heartid_entraid_client_secret"
-        case entraIDAccessToken = "heartid_entraid_access_token"
-        case entraIDRefreshToken = "heartid_entraid_refresh_token"
-        case userAuthToken = "heartid_user_auth_token"
-        case biometricEncryptionKey = "heartid_biometric_encryption_key"
-    }
-
-    // MARK: - Security Levels
-    enum SecurityLevel {
-        case standard           // Accessible when unlocked
-        case biometricRequired  // Requires Face ID/Touch ID
-        case biometricAndPasscode // Requires biometric or device passcode
-    }
-
+    
+    private let serviceName = "com.argos.cardiacid"
+    private let accessGroup = "group.com.argos.cardiacid"
+    
+    #if os(watchOS)
+    // On watchOS, use UserDefaults with app group and encryption
+    private let userDefaults = UserDefaults(suiteName: "group.com.argos.cardiacid")
+    private let encryptionKey: SymmetricKey
+    #endif
+    
     private init() {
-        print("🔐 SecureCredentialManager initialized")
-    }
-
-    // MARK: - Store Credentials
-
-    /// Store credential with specified security level
-    func store(
-        _ value: String,
-        forKey key: CredentialKey,
-        securityLevel: SecurityLevel = .biometricRequired
-    ) throws {
-        guard let data = value.data(using: .utf8) else {
-            throw CredentialError.invalidData
+        #if os(watchOS)
+        // Generate or retrieve encryption key for watchOS
+        if let keyData = UserDefaults.standard.data(forKey: "encryption_key") {
+            encryptionKey = SymmetricKey(data: keyData)
+        } else {
+            encryptionKey = SymmetricKey(size: .bits256)
+            UserDefaults.standard.set(encryptionKey.withUnsafeBytes { Data($0) }, forKey: "encryption_key")
         }
-
-        try storeData(data, forKey: key.rawValue, securityLevel: securityLevel)
+        #endif
     }
-
-    /// Store data with biometric protection
-    func storeData(
-        _ data: Data,
-        forKey key: String,
-        securityLevel: SecurityLevel = .biometricRequired
-    ) throws {
-        // Create access control based on security level
-        guard let accessControl = createAccessControl(for: securityLevel) else {
-            throw CredentialError.accessControlCreationFailed
-        }
-
-        // Build query with enhanced security
+    
+    // MARK: - Storage Methods
+    
+    func store(_ value: String, forKey key: CredentialKey, securityLevel: SecurityLevel = .standard) throws {
+        #if os(iOS)
+        try storeInKeychain(value, forKey: key, securityLevel: securityLevel)
+        #else
+        try storeInUserDefaults(value, forKey: key)
+        #endif
+    }
+    
+    func retrieve(forKey key: CredentialKey) throws -> String {
+        #if os(iOS)
+        return try retrieveFromKeychain(forKey: key)
+        #else
+        return try retrieveFromUserDefaults(forKey: key)
+        #endif
+    }
+    
+    func delete(forKey key: CredentialKey) throws {
+        #if os(iOS)
+        try deleteFromKeychain(forKey: key)
+        #else
+        try deleteFromUserDefaults(forKey: key)
+        #endif
+    }
+    
+    func exists(forKey key: CredentialKey) -> Bool {
+        #if os(iOS)
+        return existsInKeychain(forKey: key)
+        #else
+        return existsInUserDefaults(forKey: key)
+        #endif
+    }
+    
+    // MARK: - iOS Keychain Implementation
+    
+    #if os(iOS)
+    private func storeInKeychain(_ value: String, forKey key: CredentialKey, securityLevel: SecurityLevel) throws {
+        let data = value.data(using: .utf8)!
+        
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: key.rawValue,
             kSecValueData as String: data,
-            kSecAttrAccessControl as String: accessControl,
-            kSecAttrSynchronizable as String: kCFBooleanFalse!, // Never sync to iCloud
-            kSecUseDataProtectionKeychain as String: true
+            kSecAttrAccessGroup as String: accessGroup
         ]
-
-        // Add access group if not in simulator
-        #if !targetEnvironment(simulator)
-        query[kSecAttrAccessGroup as String] = accessGroup
-        #endif
-
+        
+        // Add biometric protection if required
+        switch securityLevel {
+        case .biometricRequired:
+            query[kSecAttrAccessControl as String] = SecAccessControlCreateWithFlags(
+                nil,
+                kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                .biometryAny,
+                nil
+            )
+        case .devicePasscodeRequired:
+            query[kSecAttrAccessControl as String] = SecAccessControlCreateWithFlags(
+                nil,
+                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                [],
+                nil
+            )
+        case .standard:
+            query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        }
+        
         // Delete any existing item first
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
-
-        // Add new item
+        SecItemDelete(query as CFDictionary)
+        
         let status = SecItemAdd(query as CFDictionary, nil)
-
         guard status == errSecSuccess else {
-            print("❌ Failed to store credential: \(key) - Status: \(status)")
-            throw CredentialError.storeFailed(status: status)
+            throw CredentialError.storageError("Failed to store credential: \(status)")
         }
-
-        print("✅ Stored credential securely: \(key)")
     }
-
-    // MARK: - Retrieve Credentials
-
-    /// Retrieve credential (may trigger biometric prompt)
-    func retrieve(forKey key: CredentialKey) throws -> String {
-        let data = try retrieveData(forKey: key.rawValue)
-
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw CredentialError.invalidData
+    
+    private func retrieveFromKeychain(forKey key: CredentialKey) throws -> String {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: key.rawValue,
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecReturnData as String: true
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        guard status == errSecSuccess else {
+            throw CredentialError.notFound("Credential not found: \(key.rawValue)")
         }
-
+        
+        guard let data = result as? Data,
+              let string = String(data: data, encoding: .utf8) else {
+            throw CredentialError.corruptedData("Failed to decode credential data")
+        }
+        
         return string
     }
-
-    /// Retrieve data (may trigger biometric prompt)
-    func retrieveData(forKey key: String) throws -> Data {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseOperationPrompt as String: "Authenticate to access HeartID credentials"
-        ]
-
-        // Add access group if not in simulator
-        #if !targetEnvironment(simulator)
-        query[kSecAttrAccessGroup as String] = accessGroup
-        #endif
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        guard status == errSecSuccess else {
-            if status == errSecItemNotFound {
-                throw CredentialError.notFound
-            } else if status == errSecUserCanceled {
-                throw CredentialError.userCanceled
-            } else {
-                print("❌ Failed to retrieve credential: \(key) - Status: \(status)")
-                throw CredentialError.retrieveFailed(status: status)
-            }
-        }
-
-        guard let data = result as? Data else {
-            throw CredentialError.invalidData
-        }
-
-        return data
-    }
-
-    // MARK: - Check Existence
-
-    /// Check if credential exists without retrieving it
-    func exists(forKey key: CredentialKey) -> Bool {
+    
+    private func deleteFromKeychain(forKey key: CredentialKey) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
             kSecAttrAccount as String: key.rawValue,
-            kSecReturnAttributes as String: true,
+            kSecAttrAccessGroup as String: accessGroup
+        ]
+        
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw CredentialError.storageError("Failed to delete credential: \(status)")
+        }
+    }
+    
+    private func existsInKeychain(forKey key: CredentialKey) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: key.rawValue,
+            kSecAttrAccessGroup as String: accessGroup,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
+        
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
         return status == errSecSuccess
     }
-
-    // MARK: - Delete Credentials
-
-    /// Delete specific credential
-    func delete(forKey key: CredentialKey) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key.rawValue
-        ]
-
-        let status = SecItemDelete(query as CFDictionary)
-
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw CredentialError.deleteFailed(status: status)
-        }
-
-        print("🗑️ Deleted credential: \(key.rawValue)")
-    }
-
-    /// Delete all HeartID credentials (for logout/reset)
-    func deleteAll() throws {
-        // Delete all items in our access group
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword
-        ]
-
-        let status = SecItemDelete(query as CFDictionary)
-
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw CredentialError.deleteFailed(status: status)
-        }
-
-        print("🗑️ Deleted all credentials")
-    }
-
-    // MARK: - Access Control
-
-    private func createAccessControl(for securityLevel: SecurityLevel) -> SecAccessControl? {
-        let flags: SecAccessControlCreateFlags
-
-        switch securityLevel {
-        case .standard:
-            flags = []
-        case .biometricRequired:
-            // Requires biometric authentication (Face ID/Touch ID)
-            flags = [.biometryCurrentSet, .or, .devicePasscode]
-        case .biometricAndPasscode:
-            // Requires both biometric AND passcode
-            flags = [.biometryCurrentSet, .and, .devicePasscode]
-        }
-
-        var error: Unmanaged<CFError>?
-        let accessControl = SecAccessControlCreateWithFlags(
-            kCFAllocatorDefault,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            flags,
-            &error
-        )
-
-        if let error = error {
-            print("❌ Failed to create access control: \(error.takeRetainedValue())")
-            return nil
-        }
-
-        return accessControl
-    }
-
-    // MARK: - Biometric Availability
-
-    /// Check if biometric authentication is available
-    func isBiometricAvailable() -> (available: Bool, biometryType: LABiometryType) {
-        let context = LAContext()
-        var error: NSError?
-
-        let available = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
-
-        return (available, context.biometryType)
-    }
-
-    // MARK: - Validation
-
-    /// Validate that required credentials exist
-    func validateRequiredCredentials() -> ValidationResult {
-        var missingKeys: [CredentialKey] = []
-
-        // Check Supabase credentials
-        if !exists(forKey: .supabaseAPIKey) {
-            missingKeys.append(.supabaseAPIKey)
-        }
-
-        if missingKeys.isEmpty {
-            return .valid
-        } else {
-            return .missing(keys: missingKeys)
+    #endif
+    
+    // MARK: - watchOS UserDefaults Implementation
+    
+    #if os(watchOS)
+    private func storeInUserDefaults(_ value: String, forKey key: CredentialKey) throws {
+        let data = value.data(using: .utf8)!
+        
+        do {
+            let sealedBox = try AES.GCM.seal(data, using: encryptionKey)
+            let encryptedData = sealedBox.combined
+            userDefaults?.set(encryptedData, forKey: key.rawValue)
+        } catch {
+            throw CredentialError.encryptionError("Failed to encrypt credential: \(error)")
         }
     }
-
-    // MARK: - First-Time Setup
-
-    /// Check if this is first launch (no credentials stored)
-    func isFirstLaunch() -> Bool {
-        return !exists(forKey: .supabaseAPIKey)
+    
+    private func retrieveFromUserDefaults(forKey key: CredentialKey) throws -> String {
+        guard let encryptedData = userDefaults?.data(forKey: key.rawValue) else {
+            throw CredentialError.notFound("Credential not found: \(key.rawValue)")
+        }
+        
+        do {
+            let sealedBox = try AES.GCM.SealedBox(combined: encryptedData)
+            let decryptedData = try AES.GCM.open(sealedBox, using: encryptionKey)
+            
+            guard let string = String(data: decryptedData, encoding: .utf8) else {
+                throw CredentialError.corruptedData("Failed to decode credential data")
+            }
+            
+            return string
+        } catch {
+            throw CredentialError.decryptionError("Failed to decrypt credential: \(error)")
+        }
     }
-
-    /// Store initial credentials during first setup
-    func performInitialSetup(supabaseAPIKey: String, entraIDTenantID: String, entraIDClientID: String) throws {
-        try store(supabaseAPIKey, forKey: .supabaseAPIKey, securityLevel: .biometricRequired)
-        try store(entraIDTenantID, forKey: .entraIDTenantID, securityLevel: .standard)
-        try store(entraIDClientID, forKey: .entraIDClientID, securityLevel: .standard)
-
-        print("✅ Initial credential setup complete")
+    
+    private func deleteFromUserDefaults(forKey key: CredentialKey) throws {
+        userDefaults?.removeObject(forKey: key.rawValue)
+    }
+    
+    private func existsInUserDefaults(forKey key: CredentialKey) -> Bool {
+        return userDefaults?.data(forKey: key.rawValue) != nil
+    }
+    #endif
+    
+    // MARK: - Utility Methods
+    
+    func clearAllCredentials() throws {
+        for key in CredentialKey.allCases {
+            try? delete(forKey: key)
+        }
+    }
+    
+    func exportCredentials() throws -> [String: String] {
+        var credentials: [String: String] = [:]
+        
+        for key in CredentialKey.allCases {
+            if let value = try? retrieve(forKey: key) {
+                credentials[key.rawValue] = value
+            }
+        }
+        
+        return credentials
     }
 }
 
-// MARK: - Error Types
+// MARK: - Errors
 
-enum CredentialError: Error, LocalizedError {
-    case invalidData
-    case storeFailed(status: OSStatus)
-    case retrieveFailed(status: OSStatus)
-    case deleteFailed(status: OSStatus)
-    case notFound
-    case userCanceled
-    case accessControlCreationFailed
-
+enum CredentialError: LocalizedError {
+    case storageError(String)
+    case notFound(String)
+    case corruptedData(String)
+    case encryptionError(String)
+    case decryptionError(String)
+    
     var errorDescription: String? {
         switch self {
-        case .invalidData:
-            return "Invalid credential data"
-        case .storeFailed(let status):
-            return "Failed to store credential (status: \(status))"
-        case .retrieveFailed(let status):
-            return "Failed to retrieve credential (status: \(status))"
-        case .deleteFailed(let status):
-            return "Failed to delete credential (status: \(status))"
-        case .notFound:
-            return "Credential not found"
-        case .userCanceled:
-            return "User canceled authentication"
-        case .accessControlCreationFailed:
-            return "Failed to create access control"
+        case .storageError(let message):
+            return "Storage error: \(message)"
+        case .notFound(let message):
+            return "Not found: \(message)"
+        case .corruptedData(let message):
+            return "Corrupted data: \(message)"
+        case .encryptionError(let message):
+            return "Encryption error: \(message)"
+        case .decryptionError(let message):
+            return "Decryption error: \(message)"
         }
-    }
-}
-
-enum ValidationResult {
-    case valid
-    case missing(keys: [SecureCredentialManager.CredentialKey])
-
-    var isValid: Bool {
-        if case .valid = self { return true }
-        return false
     }
 }

@@ -1,72 +1,59 @@
+//
+//  WatchConnectivityService.swift
+//  CardiacID
+//
+//  Cross-platform Watch Connectivity service for iOS and watchOS
+//  Handles authentication token sharing and device communication
+//
+
 import Foundation
-import WatchConnectivity
 import Combine
+
+#if os(iOS)
+import WatchConnectivity
 import UIKit
+#elseif os(watchOS)
+import WatchConnectivity
+import WatchKit
+#endif
 
-// MARK: - Custom Error Types
-enum WatchConnectivityError: Error, LocalizedError {
-    case sessionNotActivated
-    case watchNotReachable
-    case messageSendFailed(String)
-    case authenticationFailed(String)
-    case invalidData(String)
-    case timeout
-    
-    var errorDescription: String? {
-        switch self {
-        case .sessionNotActivated:
-            return "Watch session is not activated"
-        case .watchNotReachable:
-            return "Watch is not reachable"
-        case .messageSendFailed(let message):
-            return "Failed to send message: \(message)"
-        case .authenticationFailed(let message):
-            return "Authentication failed: \(message)"
-        case .invalidData(let message):
-            return "Invalid data: \(message)"
-        case .timeout:
-            return "Operation timed out"
-        }
-    }
-}
+// MARK: - Watch Message Types
 
-// MARK: - Watch Messages
-enum WatchMessage: String, CaseIterable {
-    case startMonitoring = "start_monitoring"
-    case stopMonitoring = "stop_monitoring"
+enum WatchMessageType: String, CaseIterable {
+    case authRequest = "auth_request"
+    case authResult = "auth_result"
     case heartRateUpdate = "heart_rate_update"
-    case authStatusUpdate = "auth_status_update"
     case enrollmentRequest = "enrollment_request"
     case enrollmentComplete = "enrollment_complete"
-    
-    // EntraID specific messages
+    case healthData = "health_data"
+    case signOut = "sign_out"
+}
+
+// MARK: - Watch Message (Standard Format)
+
+enum WatchMessage: String {
+    case heartRateUpdate = "heart_rate_update"
+    case authStatusUpdate = "auth_status_update"
+    case enrollmentComplete = "enrollment_complete"
     case entraIDAuthRequest = "entra_id_auth_request"
     case entraIDAuthResult = "entra_id_auth_result"
     case passwordlessAuthRequest = "passwordless_auth_request"
-    
-    // Keys for message dictionary
+
     struct Keys {
         static let messageType = "message_type"
         static let heartRate = "heart_rate"
-        static let timestamp = "timestamp"
         static let authStatus = "auth_status"
         static let enrollmentStatus = "enrollment_status"
-        static let deviceId = "device_id"
-        static let userId = "user_id"
-        static let error = "error"
-        
-        // EntraID specific keys
         static let success = "success"
         static let token = "token"
-        static let method = "method"
-        static let heartPattern = "heart_pattern"
-        static let expiresAt = "expires_at"
         static let refreshToken = "refresh_token"
-        static let scope = "scope"
+        static let expiresAt = "expires_at"
+        static let error = "error"
     }
 }
 
-// MARK: - Watch Authentication Result
+// MARK: - Authentication Result
+
 struct WatchAuthenticationResult {
     let isSuccess: Bool
     let token: String?
@@ -74,7 +61,7 @@ struct WatchAuthenticationResult {
     let expiresAt: Date?
     let errorMessage: String?
     let method: String?
-    
+
     var isValid: Bool {
         guard isSuccess, let token = token, !token.isEmpty else { return false }
         if let expiresAt = expiresAt {
@@ -85,252 +72,196 @@ struct WatchAuthenticationResult {
 }
 
 // MARK: - Watch Connectivity Service
+
+@MainActor
 class WatchConnectivityService: NSObject, ObservableObject {
-    // Singleton instance
     static let shared = WatchConnectivityService()
-    
-    // Session
-    private let session = WCSession.default
-    
-    // Publishers
-    @Published var isReachable = false
-    @Published var isPaired = false
-    @Published var isInstalled = false
-    @Published var isActivated = false
-    @Published var lastHeartRate: Int = 0
-    @Published var lastHeartRateTimestamp: Date?
-    
-    // Subjects for message passing
+
+    @Published private(set) var isReachable = false
+    @Published private(set) var isPaired = false
+    @Published private(set) var isInstalled = false
+    @Published private(set) var isActivated = false
+    @Published private(set) var lastHeartRate: Int = 0
+    @Published private(set) var lastHeartRateTimestamp: Date?
+    @Published private(set) var lastError: String?
+
+    private let session: WCSession
+    private var authCompletionHandler: ((WatchAuthenticationResult) -> Void)?
+
+    // Publishers for reactive UI
     private let heartRateSubject = PassthroughSubject<(Int, Date), Never>()
     private let authStatusSubject = PassthroughSubject<String, Never>()
     private let errorSubject = PassthroughSubject<String, Never>()
-    
-    // Public publishers
+
     var heartRatePublisher: AnyPublisher<(Int, Date), Never> {
-        return heartRateSubject.eraseToAnyPublisher()
+        heartRateSubject.eraseToAnyPublisher()
     }
-    
+
     var authStatusPublisher: AnyPublisher<String, Never> {
-        return authStatusSubject.eraseToAnyPublisher()
+        authStatusSubject.eraseToAnyPublisher()
     }
-    
+
     var errorPublisher: AnyPublisher<String, Never> {
-        return errorSubject.eraseToAnyPublisher()
+        errorSubject.eraseToAnyPublisher()
     }
-    
-    // Private init for singleton
+
     private override init() {
+        self.session = WCSession.default
         super.init()
+
         if WCSession.isSupported() {
             session.delegate = self
             session.activate()
         }
     }
-    
-    // MARK: - Send Messages
-    
+
+    // MARK: - Public Monitoring Methods
+
     func startMonitoring() {
-        sendMessage(
-            [WatchMessage.Keys.messageType: WatchMessage.startMonitoring.rawValue],
-            replyHandler: { reply in
-                print("Watch monitoring started: \(reply)")
-            },
-            errorHandler: { error in
-                print("Error starting watch monitoring: \(error.localizedDescription)")
-                self.errorSubject.send("Failed to start monitoring: \(error.localizedDescription)")
-            }
-        )
+        if WCSession.isSupported() && session.activationState != .activated {
+            session.activate()
+        }
+        print("WatchConnectivityService: Monitoring started")
     }
-    
+
     func stopMonitoring() {
-        sendMessage(
-            [WatchMessage.Keys.messageType: WatchMessage.stopMonitoring.rawValue],
-            replyHandler: { reply in
-                print("Watch monitoring stopped: \(reply)")
-            },
-            errorHandler: { error in
-                print("Error stopping watch monitoring: \(error.localizedDescription)")
-                self.errorSubject.send("Failed to stop monitoring: \(error.localizedDescription)")
-            }
-        )
+        print("WatchConnectivityService: Monitoring stopped")
     }
-    
-    func startEnrollment() {
-        sendMessage(
-            [WatchMessage.Keys.messageType: WatchMessage.enrollmentRequest.rawValue],
-            replyHandler: { reply in
-                print("Enrollment request sent: \(reply)")
-            },
-            errorHandler: { error in
-                print("Error requesting enrollment: \(error.localizedDescription)")
-                self.errorSubject.send("Failed to start enrollment: \(error.localizedDescription)")
-            }
-        )
-    }
-    
-    // MARK: - EntraID Methods
-    
-    /// Initiates EntraID authentication flow on the Watch
-    /// - Parameter completion: Callback with authentication result
-    func requestEntraIDAuthentication() async -> Result<Void, WatchConnectivityError> {
+
+    // MARK: - Authentication Methods
+
+    #if os(iOS)
+    /// Request EntraID authentication - sends request to trigger auth flow
+    func requestEntraIDAuthentication() -> Result<Void, Error> {
+        guard session.isReachable else {
+            return .failure(NSError(domain: "WatchConnectivity", code: -1,
+                                   userInfo: [NSLocalizedDescriptionKey: "Watch not reachable"]))
+        }
+
         let message: [String: Any] = [
             WatchMessage.Keys.messageType: WatchMessage.entraIDAuthRequest.rawValue,
-            WatchMessage.Keys.timestamp: Date().timeIntervalSince1970
+            "timestamp": Date().timeIntervalSince1970
         ]
-        
-        return await withCheckedContinuation { continuation in
-            sendMessage(
-                message,
-                replyHandler: { reply in
-                    print("✅ EntraID auth request acknowledged: \(reply)")
-                    continuation.resume(returning: .success(()))
-                },
-                errorHandler: { error in
-                    print("❌ Error sending EntraID auth request: \(error)")
-                    let watchError = WatchConnectivityError.authenticationFailed(error.localizedDescription)
-                    self.errorSubject.send(watchError.localizedDescription)
-                    continuation.resume(returning: .failure(watchError))
-                }
-            )
+
+        session.sendMessage(message, replyHandler: nil) { error in
+            Task { @MainActor in
+                self.errorSubject.send("Failed to send EntraID auth request: \(error.localizedDescription)")
+            }
         }
+
+        return .success(())
     }
-    
-    /// Sends EntraID authentication result to the Watch
-    /// - Parameters:
-    ///   - result: The authentication result containing tokens and status
-    func sendEntraIDAuthResult(_ result: WatchAuthenticationResult) async -> Result<Void, WatchConnectivityError> {
-        var message: [String: Any] = [
-            WatchMessage.Keys.messageType: WatchMessage.entraIDAuthResult.rawValue,
-            WatchMessage.Keys.success: result.isSuccess,
-            WatchMessage.Keys.timestamp: Date().timeIntervalSince1970
-        ]
-        
-        if let token = result.token {
-            message[WatchMessage.Keys.token] = token
-        }
-        
-        if let refreshToken = result.refreshToken {
-            message[WatchMessage.Keys.refreshToken] = refreshToken
-        }
-        
-        if let expiresAt = result.expiresAt {
-            message[WatchMessage.Keys.expiresAt] = expiresAt.timeIntervalSince1970
-        }
-        
-        if let errorMessage = result.errorMessage {
-            message[WatchMessage.Keys.error] = errorMessage
-        }
-        
-        return await withCheckedContinuation { continuation in
-            sendMessage(
-                message,
-                replyHandler: { reply in
-                    print("✅ EntraID auth result sent successfully: \(reply)")
-                    continuation.resume(returning: .success(()))
-                },
-                errorHandler: { error in
-                    print("❌ Error sending EntraID auth result: \(error)")
-                    let watchError = WatchConnectivityError.messageSendFailed(error.localizedDescription)
-                    self.errorSubject.send(watchError.localizedDescription)
-                    continuation.resume(returning: .failure(watchError))
-                }
-            )
-        }
-    }
-    
-    // MARK: - Passwordless Auth Methods
-    
-    /// Initiates passwordless authentication using biometric data
-    /// - Parameters:
-    ///   - method: Authentication method (e.g., "heart_pattern", "biometric")
-    ///   - heartPattern: Encrypted heart rate pattern data
-    ///   - deviceId: Unique device identifier for security
-    func sendPasswordlessAuthRequest(
-        method: String, 
-        heartPattern: Data, 
-        deviceId: String = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
-    ) async -> Result<Void, WatchConnectivityError> {
-        let message: [String: Any] = [
-            WatchMessage.Keys.messageType: WatchMessage.passwordlessAuthRequest.rawValue,
-            WatchMessage.Keys.method: method,
-            WatchMessage.Keys.heartPattern: heartPattern,
-            WatchMessage.Keys.deviceId: deviceId,
-            WatchMessage.Keys.timestamp: Date().timeIntervalSince1970
-        ]
-        
-        return await withCheckedContinuation { continuation in
-            sendMessage(
-                message,
-                replyHandler: { reply in
-                    print("✅ Passwordless auth request sent: \(reply)")
-                    continuation.resume(returning: .success(()))
-                },
-                errorHandler: { error in
-                    print("❌ Error sending passwordless auth request: \(error)")
-                    let watchError = WatchConnectivityError.authenticationFailed(error.localizedDescription)
-                    self.errorSubject.send(watchError.localizedDescription)
-                    continuation.resume(returning: .failure(watchError))
-                }
-            )
-        }
-    }
-    
-    // MARK: - Generic Message Sender
-    
-    /// Sends a message to the Watch with proper error handling and fallback mechanisms
-    /// - Parameters:
-    ///   - message: Dictionary containing the message data
-    ///   - replyHandler: Called when message is successfully sent and acknowledged
-    ///   - errorHandler: Called when an error occurs during sending
-    private func sendMessage(
-        _ message: [String: Any], 
-        replyHandler: @escaping ([String: Any]) -> Void, 
-        errorHandler: @escaping (Error) -> Void
-    ) {
-        // Validate session state
-        guard session.activationState == .activated else {
-            let error = WatchConnectivityError.sessionNotActivated
-            print("❌ Session not activated: \(session.activationState.rawValue)")
-            errorHandler(error)
+
+    func sendAuthResult(_ result: WatchAuthenticationResult) async {
+        guard session.isReachable else {
+            print("Watch not reachable, cannot send auth result")
             return
         }
-        
-        // Add metadata to message
-        var enrichedMessage = message
-        enrichedMessage["_source"] = "iOS"
-        enrichedMessage["_version"] = "1.0"
-        enrichedMessage["_messageId"] = UUID().uuidString
-        
-        if session.isReachable {
-            // Direct message sending when watch is reachable
-            print("📱 → ⌚️ Sending message via direct transfer: \(message[WatchMessage.Keys.messageType] ?? "unknown")")
-            session.sendMessage(enrichedMessage, replyHandler: { reply in
-                print("✅ Message acknowledged by Watch: \(reply)")
-                replyHandler(reply)
-            }, errorHandler: { error in
-                print("❌ Direct message failed: \(error.localizedDescription)")
-                // Attempt fallback to application context
-                self.fallbackToApplicationContext(enrichedMessage, replyHandler: replyHandler, errorHandler: errorHandler)
-            })
-        } else {
-            print("📱 → ⌚️ Watch not reachable, using application context fallback")
-            fallbackToApplicationContext(enrichedMessage, replyHandler: replyHandler, errorHandler: errorHandler)
+
+        let message: [String: Any] = [
+            "type": WatchMessageType.authResult.rawValue,
+            "success": result.isSuccess,
+            "token": result.token ?? "",
+            "error": result.errorMessage ?? "",
+            "expires_at": result.expiresAt?.timeIntervalSince1970 ?? 0,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        session.sendMessage(message, replyHandler: { reply in
+            print("Auth result sent successfully: \(reply)")
+        }) { error in
+            print("Failed to send auth result: \(error)")
+            Task { @MainActor in
+                self.errorSubject.send("Failed to send authentication result: \(error.localizedDescription)")
+            }
         }
     }
-    
-    /// Fallback mechanism using application context when direct messaging fails
-    private func fallbackToApplicationContext(
-        _ message: [String: Any],
-        replyHandler: @escaping ([String: Any]) -> Void,
-        errorHandler: @escaping (Error) -> Void
-    ) {
-        do {
-            try session.updateApplicationContext(message)
-            print("✅ Message queued via application context")
-            replyHandler(["status": "queued", "method": "application_context"])
-        } catch {
-            print("❌ Application context fallback failed: \(error.localizedDescription)")
-            errorHandler(WatchConnectivityError.messageSendFailed(error.localizedDescription))
+    #endif
+
+    #if os(watchOS)
+    func requestAuthenticationFromiOS() async -> WatchAuthenticationResult {
+        guard session.isReachable else {
+            return WatchAuthenticationResult(
+                isSuccess: false,
+                token: nil,
+                refreshToken: nil,
+                expiresAt: nil,
+                errorMessage: "iPhone not reachable",
+                method: nil
+            )
+        }
+
+        let message: [String: Any] = [
+            "type": WatchMessageType.authRequest.rawValue,
+            "platform": "watchOS",
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        return await withCheckedContinuation { continuation in
+            self.authCompletionHandler = { result in
+                continuation.resume(returning: result)
+            }
+
+            session.sendMessage(message, replyHandler: { reply in
+                print("Auth request acknowledged: \(reply)")
+            }) { error in
+                let errorResult = WatchAuthenticationResult(
+                    isSuccess: false,
+                    token: nil,
+                    refreshToken: nil,
+                    expiresAt: nil,
+                    errorMessage: error.localizedDescription,
+                    method: nil
+                )
+                continuation.resume(returning: errorResult)
+            }
+        }
+    }
+    #endif
+
+    // MARK: - Health Data Methods
+
+    func sendHeartRate(_ heartRate: Int) {
+        let message: [String: Any] = [
+            "type": WatchMessageType.heartRateUpdate.rawValue,
+            "heart_rate": heartRate,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message)
+    }
+
+    func requestEnrollment() {
+        let message: [String: Any] = [
+            "type": WatchMessageType.enrollmentRequest.rawValue,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message)
+    }
+
+    // MARK: - Generic Message Sending
+
+    private func sendMessage(_ message: [String: Any]) {
+        guard session.activationState == .activated else {
+            errorSubject.send("Watch session not activated")
+            return
+        }
+
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { error in
+                Task { @MainActor in
+                    self.errorSubject.send("Message send failed: \(error.localizedDescription)")
+                }
+            }
+        } else {
+            // Fallback to application context
+            do {
+                try session.updateApplicationContext(message)
+                print("Message sent via application context")
+            } catch {
+                errorSubject.send("Failed to send message: \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -338,8 +269,8 @@ class WatchConnectivityService: NSObject, ObservableObject {
 // MARK: - WCSessionDelegate
 
 extension WatchConnectivityService: WCSessionDelegate {
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        DispatchQueue.main.async {
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        Task { @MainActor in
             self.isActivated = activationState == .activated
             if let error = error {
                 print("Watch session activation error: \(error.localizedDescription)")
@@ -347,231 +278,285 @@ extension WatchConnectivityService: WCSessionDelegate {
             }
         }
     }
-    
-    func sessionReachabilityDidChange(_ session: WCSession) {
-        DispatchQueue.main.async {
+
+    nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
+        Task { @MainActor in
             self.isReachable = session.isReachable
         }
     }
-    
-    // iOS only delegate method
-    func sessionDidBecomeInactive(_ session: WCSession) {
-        DispatchQueue.main.async {
+
+    #if os(iOS)
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
+        Task { @MainActor in
             self.isActivated = false
         }
     }
-    
-    // iOS only delegate method
-    func sessionDidDeactivate(_ session: WCSession) {
-        DispatchQueue.main.async {
+
+    nonisolated func sessionDidDeactivate(_ session: WCSession) {
+        Task { @MainActor in
             self.isActivated = false
-            // Reactivate the session if needed
-            WCSession.default.activate()
         }
+        // Reactivate the session
+        WCSession.default.activate()
     }
-    
-    // iOS only delegate method
-    func sessionWatchStateDidChange(_ session: WCSession) {
-        DispatchQueue.main.async {
+
+    nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
+        Task { @MainActor in
             self.isPaired = session.isPaired
             self.isInstalled = session.isWatchAppInstalled
         }
     }
-    
+    #endif
+
     // Receive message from watch
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        handleReceivedMessage(message)
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        Task { @MainActor in
+            self.handleReceivedMessage(message, session: session, replyHandler: nil)
+        }
     }
-    
+
     // Receive message with reply from watch
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
-        handleReceivedMessage(message)
-        replyHandler(["status": "received"])
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        Task { @MainActor in
+            self.handleReceivedMessage(message, session: session, replyHandler: replyHandler)
+        }
     }
-    
+
     // Receive updated application context
-    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        handleReceivedMessage(applicationContext)
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        Task { @MainActor in
+            self.handleReceivedMessage(applicationContext, session: WCSession.default, replyHandler: nil)
+        }
     }
-    
+
     // MARK: - Message Handling
 
-    private func handleReceivedMessage(_ message: [String: Any]) {
-        print("📱 iOS received message from Watch: \(message)")
+    private func handleReceivedMessage(_ message: [String: Any], session: WCSession, replyHandler: (([String: Any]) -> Void)?) {
+        print("Received message: \(message)")
 
         // Check for iOS format first (message_type key)
         if let messageTypeRaw = message[WatchMessage.Keys.messageType] as? String,
            let messageType = WatchMessage(rawValue: messageTypeRaw) {
             handleStandardMessage(messageType, message: message)
+            replyHandler?(["status": "received"])
             return
         }
 
         // Check for Watch legacy format (type key)
         if let typeString = message["type"] as? String {
+            // Handle authentication requests from watchOS
+            if typeString == "auth_request" {
+                #if os(iOS)
+                handleAuthRequest(session: session, replyHandler: replyHandler)
+                #else
+                replyHandler?(["success": false, "error": "Not supported on this platform"])
+                #endif
+                return
+            }
+
             handleWatchFormatMessage(typeString, message: message)
+            replyHandler?(["status": "received"])
             return
         }
 
-        print("⚠️ iOS: Received message with unknown format")
+        print("Received message with unknown format")
+        replyHandler?(["status": "unknown_format"])
     }
+
+    #if os(iOS)
+    private func handleAuthRequest(session: WCSession, replyHandler: (([String: Any]) -> Void)?) {
+        Task { @MainActor in
+            do {
+                // Trigger authentication on iOS using EntraIDAuthClient
+                let user = try await EntraIDAuthClient.shared.signIn()
+
+                // Get the access token
+                if let accessToken = try? SecureCredentialManager.shared.retrieve(forKey: .entraIDAccessToken) {
+                    // Send successful auth result back to watch
+                    let authMessage: [String: Any] = [
+                        "type": "auth_result",
+                        "success": true,
+                        "token": accessToken,
+                        "user": [
+                            "id": user.id,
+                            "displayName": user.displayName,
+                            "email": user.email,
+                            "tenantId": user.tenantId ?? ""
+                        ],
+                        "expires_at": Date().addingTimeInterval(3600).timeIntervalSince1970,
+                        "scopes": ["User.Read", "Application.Read.All", "Group.Read.All"]
+                    ]
+
+                    // Send via session message
+                    if session.isReachable {
+                        session.sendMessage(authMessage, replyHandler: nil)
+                    }
+
+                    replyHandler?(["success": true, "message": "Authentication completed"])
+                } else {
+                    replyHandler?(["success": false, "error": "Failed to retrieve access token"])
+                }
+            } catch {
+                // Send error back to watch
+                let errorMessage: [String: Any] = [
+                    "type": "auth_result",
+                    "success": false,
+                    "error": error.localizedDescription
+                ]
+
+                if session.isReachable {
+                    session.sendMessage(errorMessage, replyHandler: nil)
+                }
+
+                replyHandler?(["success": false, "error": error.localizedDescription])
+            }
+        }
+    }
+    #endif
 
     /// Handle messages using standard iOS WatchMessage format
     private func handleStandardMessage(_ messageType: WatchMessage, message: [String: Any]) {
-        DispatchQueue.main.async {
-            switch messageType {
-            case .heartRateUpdate:
-                if let heartRate = message[WatchMessage.Keys.heartRate] as? Int {
-                    self.lastHeartRate = heartRate
-                    let timestamp = Date()
-                    self.lastHeartRateTimestamp = timestamp
-                    self.heartRateSubject.send((heartRate, timestamp))
-                    print("❤️ iOS: Received heart rate from Watch: \(heartRate) BPM")
-                }
-
-            case .authStatusUpdate:
-                // Also extract heart rate from auth status updates
-                if let heartRate = message["heart_rate"] as? Int {
-                    self.lastHeartRate = heartRate
-                    let timestamp = Date()
-                    self.lastHeartRateTimestamp = timestamp
-                    self.heartRateSubject.send((heartRate, timestamp))
-                    print("❤️ iOS: Received heart rate from auth update: \(heartRate) BPM")
-                }
-
-                if let status = message[WatchMessage.Keys.authStatus] as? String {
-                    self.authStatusSubject.send(status)
-                    print("🔐 iOS: Received auth status from Watch: \(status)")
-                }
-
-            case .enrollmentComplete:
-                if let status = message[WatchMessage.Keys.enrollmentStatus] as? String {
-                    print("✅ iOS: Enrollment complete with status: \(status)")
-                    // Notify app of enrollment completion
-                    NotificationCenter.default.post(
-                        name: .init("WatchEnrollmentComplete"),
-                        object: nil,
-                        userInfo: ["status": status]
-                    )
-                }
-                
-            case .entraIDAuthRequest:
-                print("🔐 iOS: Received EntraID auth request from Watch")
-                // Handle EntraID authentication request from Watch
-                NotificationCenter.default.post(
-                    name: .init("WatchEntraIDAuthRequest"),
-                    object: nil,
-                    userInfo: message
-                )
-                
-            case .entraIDAuthResult:
-                print("🔐 iOS: Received EntraID auth result from Watch")
-                if let success = message[WatchMessage.Keys.success] as? Bool {
-                    var authResult = WatchAuthenticationResult(
-                        isSuccess: success,
-                        token: message[WatchMessage.Keys.token] as? String,
-                        refreshToken: message[WatchMessage.Keys.refreshToken] as? String,
-                        expiresAt: {
-                            if let timestamp = message[WatchMessage.Keys.expiresAt] as? TimeInterval {
-                                return Date(timeIntervalSince1970: timestamp)
-                            }
-                            return nil
-                        }(),
-                        errorMessage: message[WatchMessage.Keys.error] as? String,
-                        method: "entra_id"
-                    )
-                    
-                    // Notify app of EntraID auth result
-                    NotificationCenter.default.post(
-                        name: .init("WatchEntraIDAuthResult"),
-                        object: authResult,
-                        userInfo: message
-                    )
-                }
-                
-            case .passwordlessAuthRequest:
-                print("🔐 iOS: Received passwordless auth request from Watch")
-                // Handle passwordless authentication request from Watch
-                NotificationCenter.default.post(
-                    name: .init("WatchPasswordlessAuthRequest"),
-                    object: nil,
-                    userInfo: message
-                )
-
-            default:
-                print("⚠️ iOS: Unhandled message type: \(messageType)")
+        switch messageType {
+        case .heartRateUpdate:
+            if let heartRate = message[WatchMessage.Keys.heartRate] as? Int {
+                self.lastHeartRate = heartRate
+                let timestamp = Date()
+                self.lastHeartRateTimestamp = timestamp
+                self.heartRateSubject.send((heartRate, timestamp))
+                print("Received heart rate from Watch: \(heartRate) BPM")
             }
 
-            // Handle any error messages
-            if let error = message[WatchMessage.Keys.error] as? String {
-                self.errorSubject.send(error)
+        case .authStatusUpdate:
+            // Also extract heart rate from auth status updates
+            if let heartRate = message["heart_rate"] as? Int {
+                self.lastHeartRate = heartRate
+                let timestamp = Date()
+                self.lastHeartRateTimestamp = timestamp
+                self.heartRateSubject.send((heartRate, timestamp))
             }
+
+            if let status = message[WatchMessage.Keys.authStatus] as? String {
+                self.authStatusSubject.send(status)
+                print("Received auth status from Watch: \(status)")
+            }
+
+        case .enrollmentComplete:
+            if let status = message[WatchMessage.Keys.enrollmentStatus] as? String {
+                print("Enrollment complete with status: \(status)")
+                NotificationCenter.default.post(
+                    name: .watchEnrollmentComplete,
+                    object: nil,
+                    userInfo: ["status": status]
+                )
+            }
+
+        case .entraIDAuthRequest:
+            print("Received EntraID auth request from Watch")
+            NotificationCenter.default.post(
+                name: .watchEntraIDAuthRequest,
+                object: nil,
+                userInfo: message
+            )
+
+        case .entraIDAuthResult:
+            print("Received EntraID auth result")
+            if let success = message[WatchMessage.Keys.success] as? Bool {
+                let authResult = WatchAuthenticationResult(
+                    isSuccess: success,
+                    token: message[WatchMessage.Keys.token] as? String,
+                    refreshToken: message[WatchMessage.Keys.refreshToken] as? String,
+                    expiresAt: {
+                        if let timestamp = message[WatchMessage.Keys.expiresAt] as? TimeInterval {
+                            return Date(timeIntervalSince1970: timestamp)
+                        }
+                        return nil
+                    }(),
+                    errorMessage: message[WatchMessage.Keys.error] as? String,
+                    method: "entra_id"
+                )
+
+                // Call completion handler if waiting
+                authCompletionHandler?(authResult)
+                authCompletionHandler = nil
+
+                NotificationCenter.default.post(
+                    name: .watchEntraIDAuthResult,
+                    object: authResult,
+                    userInfo: message
+                )
+            }
+
+        case .passwordlessAuthRequest:
+            print("Received passwordless auth request from Watch")
+            NotificationCenter.default.post(
+                name: .watchPasswordlessAuthRequest,
+                object: nil,
+                userInfo: message
+            )
+        }
+
+        // Handle any error messages
+        if let error = message[WatchMessage.Keys.error] as? String {
+            self.errorSubject.send(error)
         }
     }
 
     /// Handle messages from Watch using legacy format (type key)
     private func handleWatchFormatMessage(_ type: String, message: [String: Any]) {
-        DispatchQueue.main.async {
-            print("⌚️ iOS: Handling Watch legacy format message: \(type)")
+        print("Handling Watch legacy format message: \(type)")
 
-            switch type {
-            case "heartPattern":
-                if let data = message["data"] as? [Double] {
-                    print("❤️ iOS: Received heart pattern data from Watch: \(data.count) samples")
-                    // Could convert to heart rate or store pattern
-                }
-
-            case "authenticationResult":
-                if let result = message["result"] as? String {
-                    print("🔐 iOS: Received auth result from Watch: \(result)")
-                    self.authStatusSubject.send(result)
-                }
-
-            case "enrollmentStatus":
-                if let isEnrolled = message["isEnrolled"] as? Bool {
-                    print("✅ iOS: Received enrollment status from Watch: \(isEnrolled)")
-                    NotificationCenter.default.post(
-                        name: .init("WatchEnrollmentComplete"),
-                        object: nil,
-                        userInfo: ["isEnrolled": isEnrolled]
-                    )
-                }
-
-            default:
-                print("⚠️ iOS: Unknown Watch message type: \(type)")
+        switch type {
+        case "heartPattern":
+            if let data = message["data"] as? [Double] {
+                print("Received heart pattern data from Watch: \(data.count) samples")
             }
-        }
-    }
-}
 
-// MARK: - Convenience Extensions
+        case "authenticationResult", "auth_result":
+            if let success = message["success"] as? Bool {
+                let result = WatchAuthenticationResult(
+                    isSuccess: success,
+                    token: message["token"] as? String,
+                    refreshToken: message["refresh_token"] as? String,
+                    expiresAt: {
+                        if let timestamp = message["expires_at"] as? TimeInterval {
+                            return Date(timeIntervalSince1970: timestamp)
+                        }
+                        return nil
+                    }(),
+                    errorMessage: message["error"] as? String,
+                    method: "entra_id"
+                )
 
-extension WatchConnectivityService {
-    /// Convenience method for modern async/await authentication
-    @MainActor
-    func authenticateWithEntraID() async -> WatchAuthenticationResult {
-        let result = await requestEntraIDAuthentication()
-        
-        switch result {
-        case .success:
-            // Wait for the authentication result from the Watch
-            // This would typically be handled by listening to NotificationCenter
-            return WatchAuthenticationResult(
-                isSuccess: false,
-                token: nil,
-                refreshToken: nil,
-                expiresAt: nil,
-                errorMessage: "Authentication initiated. Waiting for Watch response.",
-                method: "entra_id"
+                authCompletionHandler?(result)
+                authCompletionHandler = nil
+            }
+
+        case "enrollmentStatus":
+            if let isEnrolled = message["isEnrolled"] as? Bool {
+                print("Received enrollment status from Watch: \(isEnrolled)")
+                NotificationCenter.default.post(
+                    name: .watchEnrollmentComplete,
+                    object: nil,
+                    userInfo: ["isEnrolled": isEnrolled]
+                )
+            }
+
+        case "heart_rate_update":
+            if let heartRate = message["heart_rate"] as? Int {
+                self.lastHeartRate = heartRate
+                let timestamp = Date()
+                self.lastHeartRateTimestamp = timestamp
+                self.heartRateSubject.send((heartRate, timestamp))
+            }
+
+        case "sign_out":
+            NotificationCenter.default.post(
+                name: .init("RemoteSignOut"),
+                object: nil
             )
-        case .failure(let error):
-            return WatchAuthenticationResult(
-                isSuccess: false,
-                token: nil,
-                refreshToken: nil,
-                expiresAt: nil,
-                errorMessage: error.localizedDescription,
-                method: "entra_id"
-            )
+
+        default:
+            print("Unknown Watch message type: \(type)")
         }
     }
 }

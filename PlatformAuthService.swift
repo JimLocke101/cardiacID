@@ -64,11 +64,7 @@ class iOSAuthService: ObservableObject, AuthenticationServiceProtocol {
     
     private var msalApplication: MSALPublicClientApplication?
     private let watchConnectivity = WatchConnectivityService.shared
-    
-    // Configuration
-    private let tenantId = "your-tenant-id" // Replace with actual tenant ID
-    private let clientId = "your-client-id" // Replace with actual client ID
-    private let redirectUri = "cardiacid://auth"
+    private let configuration = MSALConfiguration.shared
     
     init() {
         initializeMSAL()
@@ -77,16 +73,7 @@ class iOSAuthService: ObservableObject, AuthenticationServiceProtocol {
     private func initializeMSAL() {
         #if canImport(MSAL)
         do {
-            let authorityURL = URL(string: "https://login.microsoftonline.com/\(tenantId)")!
-            let authority = try MSALAADAuthority(url: authorityURL)
-            
-            let config = MSALPublicClientApplicationConfig(
-                clientId: clientId,
-                redirectUri: redirectUri,
-                authority: authority
-            )
-            
-            self.msalApplication = try MSALPublicClientApplication(configuration: config)
+            self.msalApplication = try configuration.createMSALApplication()
             print("✅ MSAL initialized successfully")
         } catch {
             print("❌ Failed to initialize MSAL: \(error)")
@@ -114,7 +101,7 @@ class iOSAuthService: ObservableObject, AuthenticationServiceProtocol {
             
             let webParameters = MSALWebviewParameters(authPresentationViewController: viewController)
             let parameters = MSALInteractiveTokenParameters(
-                scopes: ["User.Read", "openid", "profile"],
+                scopes: configuration.scopes,
                 webviewParameters: webParameters
             )
             
@@ -186,7 +173,7 @@ class iOSAuthService: ObservableObject, AuthenticationServiceProtocol {
             }
             
             let parameters = MSALSilentTokenParameters(
-                scopes: ["User.Read", "openid", "profile"],
+                scopes: configuration.scopes,
                 account: account
             )
             

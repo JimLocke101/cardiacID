@@ -11,10 +11,11 @@ import UIKit
 
 /// This file verifies that all types can be imported and used without conflicts
 class BuildVerification {
-    
+
+    @MainActor
     static func verifyTypeResolution() {
         // Test that we can create both authentication result types without conflicts
-        
+
         // 1. AuthenticationResult from AuthenticationModels.swift
         let authResult = AuthenticationResult(
             success: true,
@@ -31,7 +32,7 @@ class BuildVerification {
             timestamp: Date(),
             requiresStepUp: false
         )
-        
+
         // 2. WatchAuthenticationResult from WatchConnectivityService.swift
         let watchResult = WatchAuthenticationResult(
             isSuccess: true,
@@ -41,23 +42,23 @@ class BuildVerification {
             errorMessage: nil,
             method: "test"
         )
-        
+
         // 3. Test UI device access (should not fail with missing UIKit)
         let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
-        
+
         // 4. Test that confidence thresholds are accessible
         let thresholds = ConfidenceThresholds.default
-        
+
         // 5. Test integration modes
         let mode = IntegrationMode.local
-        
-        print("✅ Build verification passed:")
+
+        print("Build verification passed:")
         print("   - AuthenticationResult: \(authResult.success)")
         print("   - WatchAuthenticationResult: \(watchResult.isSuccess)")
         print("   - Device ID available: \(!deviceId.isEmpty)")
         print("   - Thresholds accessible: \(thresholds.fullAccess > 0)")
         print("   - Integration modes: \(mode.rawValue)")
-        
+
         // Test WatchConnectivityService without property access
         let serviceExists = WatchConnectivityServiceVerification.verifyServiceExists()
         let serviceMethodsWork = WatchConnectivityServiceVerification.verifyServiceMethods()
@@ -78,14 +79,16 @@ class BuildVerification {
 
 /// Service verification without direct property access
 class WatchConnectivityServiceVerification {
-    
+
     /// Verify that WatchConnectivityService exists and can be instantiated
+    @MainActor
     static func verifyServiceExists() -> Bool {
         let service = WatchConnectivityService.shared
-        return service != nil
+        return true
     }
-    
+
     /// Test that service methods can be called without compilation errors
+    @MainActor
     static func verifyServiceMethods() -> Bool {
         let service = WatchConnectivityService.shared
 
