@@ -614,4 +614,6 @@ extension Notification.Name {
     static let watchEntraIDAuthRequest = Notification.Name("WatchEntraIDAuthRequest")
     static let watchEntraIDAuthResult = Notification.Name("WatchEntraIDAuthResult")
     static let watchPasswordlessAuthRequest = Notification.Name("WatchPasswordlessAuthRequest")
+    static let authenticationSucceeded = Notification.Name("AuthenticationSucceeded")
+    static let authenticationFailed = Notification.Name("AuthenticationFailed")
 }

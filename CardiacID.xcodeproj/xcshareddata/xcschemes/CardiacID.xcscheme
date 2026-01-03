@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1640"
+   LastUpgradeVersion = "2620"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -18,20 +18,6 @@
                BlueprintIdentifier = "FBF0C0982E70DF24005C425B"
                BuildableName = "CardiacID.app"
                BlueprintName = "CardiacID"
-               ReferencedContainer = "container:CardiacID.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FBF0C0BB2E70DF25005C425B"
-               BuildableName = "CardiacID Watch App.app"
-               BlueprintName = "CardiacID Watch App"
                ReferencedContainer = "container:CardiacID.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
