@@ -176,6 +176,52 @@ class WatchConnectivityService: NSObject, ObservableObject {
             }
         }
     }
+
+    /// Send EntraID authentication result to Watch
+    func sendEntraIDAuthResult(success: Bool, token: String?, error: String?) {
+        let message: [String: Any] = [
+            WatchMessage.Keys.messageType: WatchMessage.entraIDAuthResult.rawValue,
+            WatchMessage.Keys.success: success,
+            WatchMessage.Keys.token: token ?? "",
+            WatchMessage.Keys.error: error ?? "",
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message)
+    }
+
+    /// Send EntraID authentication result to Watch using WatchAuthenticationResult
+    func sendEntraIDAuthResult(_ result: WatchAuthenticationResult) async {
+        sendEntraIDAuthResult(
+            success: result.isSuccess,
+            token: result.token,
+            error: result.errorMessage
+        )
+    }
+
+    /// Send passwordless authentication request
+    func sendPasswordlessAuthRequest(email: String, code: String? = nil) {
+        let message: [String: Any] = [
+            WatchMessage.Keys.messageType: WatchMessage.passwordlessAuthRequest.rawValue,
+            "email": email,
+            "code": code ?? "",
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message)
+    }
+
+    /// Send passwordless authentication request with method and heart pattern data
+    func sendPasswordlessAuthRequest(method: String, heartPattern: Data) async {
+        let message: [String: Any] = [
+            WatchMessage.Keys.messageType: WatchMessage.passwordlessAuthRequest.rawValue,
+            "method": method,
+            "heartPattern": heartPattern.base64EncodedString(),
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message)
+    }
     #endif
 
     #if os(watchOS)

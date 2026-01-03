@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftUI
 import Combine
 
 /// View for managing enterprise authentication (Entra ID, Active Directory)
@@ -164,10 +163,10 @@ struct EnterpriseAuthView: View {
     private func signIn() {
         isAuthenticating = true
         entraIDService.authenticate()
-        
+
         // Send authentication request to watch
         Task {
-            await watchConnectivity.requestEntraIDAuthentication()
+            _ = watchConnectivity.requestEntraIDAuthentication()
         }
     }
     

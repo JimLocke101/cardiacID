@@ -489,7 +489,7 @@ class HeartIDService: ObservableObject {
         print("🔐 ECG step-up requested for: \(action.description)")
 
         guard let template = try? storage.loadTemplate() else {
-            throw AuthenticationError.notEnrolled
+            throw HeartIDAuthenticationError.notEnrolled
         }
 
         let ecg = try await healthKit.pollForRecentECG(timeout: 180)
@@ -809,7 +809,7 @@ enum EnrollmentError: Error, LocalizedError {
     }
 }
 
-enum AuthenticationError: Error, LocalizedError {
+enum HeartIDAuthenticationError: Error, LocalizedError {
     case notEnrolled
     case confidenceTooLow
     case timeout

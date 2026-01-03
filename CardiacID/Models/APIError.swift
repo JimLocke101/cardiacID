@@ -11,12 +11,14 @@ import Foundation
 enum APIError: Error, LocalizedError {
     case networkError(Error)
     case invalidResponse
+    case invalidURL
     case unauthorized
     case authenticationError(String)
     case notFound
     case serverError(Int, String?)
     case decodingError(Error)
     case invalidData
+    case encodingError
     case unknown(Error)
 
     var errorDescription: String? {
@@ -25,6 +27,8 @@ enum APIError: Error, LocalizedError {
             return "Network error: \(error.localizedDescription)"
         case .invalidResponse:
             return "Invalid response from server"
+        case .invalidURL:
+            return "Invalid URL"
         case .unauthorized:
             return "Unauthorized - please sign in again"
         case .authenticationError(let message):
@@ -37,6 +41,8 @@ enum APIError: Error, LocalizedError {
             return "Failed to decode response: \(error.localizedDescription)"
         case .invalidData:
             return "Invalid data received"
+        case .encodingError:
+            return "Failed to encode data"
         case .unknown(let error):
             return "Unknown error: \(error.localizedDescription)"
         }
