@@ -9,9 +9,6 @@
 	<key>com.apple.developer.healthkit.background-delivery</key>
 	<true/>
 	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>group.ARGOS.HeartIDv0.6</string>
-		<string>group.com.heartid.ecg.shared</string>
-	</array>
+	<array/>
 </dict>
 </plist>
