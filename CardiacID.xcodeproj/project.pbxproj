@@ -745,7 +745,7 @@
 				DEVELOPMENT_TEAM = PYGGR5786Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = CardiacID;
+				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
@@ -780,7 +780,7 @@
 				DEVELOPMENT_TEAM = PYGGR5786Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = CardiacID;
+				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
