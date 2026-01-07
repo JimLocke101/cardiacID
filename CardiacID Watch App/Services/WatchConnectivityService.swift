@@ -235,6 +235,57 @@ class WatchConnectivityService: NSObject, ObservableObject {
             }
         }
     }
+
+    // MARK: - Biometric Data Response for Live Biometric Data
+
+    /// Send biometric data response to iOS for Live Biometric Data display
+    /// Uses PPG data when actively monitoring, falls back to last ECG when not
+    private func sendBiometricDataResponse() {
+        // Request biometric data from HeartIDService via notification
+        NotificationCenter.default.post(
+            name: .init("BiometricDataRequest"),
+            object: nil,
+            userInfo: ["replyHandler": { [weak self] (data: [String: Any]) in
+                self?.sendMessage(data) { success in
+                    if success {
+                        print("✅ Watch: Sent biometric data response to iOS")
+                    } else {
+                        print("❌ Watch: Failed to send biometric data response to iOS")
+                    }
+                }
+            }]
+        )
+    }
+
+    /// Send biometric data directly (called by HeartIDService)
+    func sendBiometricDataToiOS(
+        confidence: Double,
+        heartRate: Int,
+        method: String,
+        isActiveMonitoring: Bool,
+        userName: String,
+        authenticated: Bool
+    ) {
+        let message: [String: Any] = [
+            "message_type": "biometric_data_response",
+            "confidence": confidence,
+            "heart_rate": heartRate,
+            "method": method,  // "ppg" or "ecg"
+            "is_active_monitoring": isActiveMonitoring,
+            "user_name": userName,
+            "authenticated": authenticated,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        sendMessage(message) { success in
+            if success {
+                let methodLabel = isActiveMonitoring ? "PPG (active)" : "ECG (last reading)"
+                print("✅ Watch: Sent biometric data to iOS - \(methodLabel): \(Int(confidence * 100))%, HR: \(heartRate) bpm")
+            } else {
+                print("❌ Watch: Failed to send biometric data to iOS")
+            }
+        }
+    }
 }
 
 // MARK: - WCSessionDelegate
@@ -356,6 +407,11 @@ extension WatchConnectivityService: WCSessionDelegate {
                     userInfo: ["method": method]
                 )
             }
+
+        case "biometric_data_request":
+            // iOS is requesting current biometric data for Live Biometric Data display
+            print("⌚️ Watch: iOS requested biometric data update")
+            sendBiometricDataResponse()
 
         default:
             print("⚠️ Watch: Unknown iOS message type: \(messageType)")

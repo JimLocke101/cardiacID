@@ -85,6 +85,21 @@ class WatchConnectivityService: NSObject, ObservableObject {
     @Published private(set) var lastHeartRateTimestamp: Date?
     @Published private(set) var lastError: String?
 
+    // MARK: - Live Biometric Data from Watch
+
+    /// Current biometric confidence from Watch (PPG when active, ECG when not)
+    @Published private(set) var liveBiometricConfidence: Double = 0.0
+    /// Current biometric method ("ppg" when actively monitoring, "ecg" for last reading)
+    @Published private(set) var liveBiometricMethod: String = ""
+    /// Whether Watch is actively monitoring (PPG mode)
+    @Published private(set) var isWatchActivelyMonitoring: Bool = false
+    /// User name from Watch biometric data
+    @Published private(set) var liveBiometricUserName: String = ""
+    /// Whether user is authenticated according to Watch
+    @Published private(set) var liveBiometricAuthenticated: Bool = false
+    /// Timestamp of last biometric data update
+    @Published private(set) var liveBiometricTimestamp: Date?
+
     private let session: WCSession
     private var authCompletionHandler: ((WatchAuthenticationResult) -> Void)?
 
@@ -169,15 +184,20 @@ class WatchConnectivityService: NSObject, ObservableObject {
         #if os(iOS)
         guard session.isReachable else { return }
 
+        // Use message_type key for iOS format (Watch expects this)
         let message: [String: Any] = [
-            "type": "biometric_data_request",
+            "message_type": "biometric_data_request",
             "timestamp": Date().timeIntervalSince1970
         ]
 
         session.sendMessage(message, replyHandler: { reply in
-            print("📱 Received biometric data reply: \(reply)")
+            Task { @MainActor in
+                print("📱 Received biometric data reply: \(reply)")
+            }
         }) { error in
-            print("📱 Biometric data request failed: \(error.localizedDescription)")
+            Task { @MainActor in
+                print("📱 Biometric data request failed: \(error.localizedDescription)")
+            }
         }
         #endif
     }
@@ -685,9 +705,62 @@ extension WatchConnectivityService: WCSessionDelegate {
                 object: nil
             )
 
+        case "biometric_data_response":
+            // Handle Live Biometric Data response from Watch
+            handleBiometricDataResponse(message)
+
         default:
             print("Unknown Watch message type: \(type)")
         }
+    }
+
+    // MARK: - Live Biometric Data Handler
+
+    /// Handle biometric data response from Watch for Live Biometric Data display
+    /// Watch sends PPG data when actively monitoring, ECG data when not
+    private func handleBiometricDataResponse(_ message: [String: Any]) {
+        guard let confidence = message["confidence"] as? Double else {
+            print("📱 Invalid biometric data response - missing confidence")
+            return
+        }
+
+        let heartRate = message["heart_rate"] as? Int ?? 0
+        let method = message["method"] as? String ?? "unknown"
+        let isActive = message["is_active_monitoring"] as? Bool ?? false
+        let userName = message["user_name"] as? String ?? ""
+        let authenticated = message["authenticated"] as? Bool ?? false
+
+        // Update published properties for Live Biometric Data display
+        self.liveBiometricConfidence = confidence
+        self.liveBiometricMethod = method
+        self.isWatchActivelyMonitoring = isActive
+        self.liveBiometricUserName = userName
+        self.liveBiometricAuthenticated = authenticated
+        self.liveBiometricTimestamp = Date()
+
+        // Also update heart rate if provided
+        if heartRate > 0 {
+            self.lastHeartRate = heartRate
+            self.lastHeartRateTimestamp = Date()
+            self.heartRateSubject.send((heartRate, Date()))
+        }
+
+        let methodLabel = isActive ? "PPG (active)" : "ECG (last reading)"
+        print("📱 Live Biometric Data updated - \(methodLabel): \(Int(confidence * 100))%, HR: \(heartRate) bpm, User: \(userName)")
+
+        // Post notification for UI updates
+        NotificationCenter.default.post(
+            name: .liveBiometricDataUpdated,
+            object: nil,
+            userInfo: [
+                "confidence": confidence,
+                "method": method,
+                "isActiveMonitoring": isActive,
+                "heartRate": heartRate,
+                "userName": userName,
+                "authenticated": authenticated
+            ]
+        )
     }
 }
 
@@ -700,4 +773,5 @@ extension Notification.Name {
     static let watchPasswordlessAuthRequest = Notification.Name("WatchPasswordlessAuthRequest")
     static let authenticationSucceeded = Notification.Name("AuthenticationSucceeded")
     static let authenticationFailed = Notification.Name("AuthenticationFailed")
+    static let liveBiometricDataUpdated = Notification.Name("LiveBiometricDataUpdated")
 }

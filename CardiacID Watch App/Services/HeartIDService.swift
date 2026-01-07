@@ -58,6 +58,7 @@ class HeartIDService: ObservableObject {
     init() {
         loadConfiguration()
         setupWristDetectionMonitoring()
+        setupBiometricDataRequestHandler()
     }
 
     deinit {
@@ -594,6 +595,60 @@ class HeartIDService: ObservableObject {
                     self.lastIntervalResetTime = Date()
                 }
             }
+    }
+
+    // MARK: - Biometric Data Request Handler (for iOS Live Biometric Data)
+
+    /// Set up handler for iOS biometric data requests
+    /// Responds with PPG data when actively monitoring, ECG data when not
+    private func setupBiometricDataRequestHandler() {
+        NotificationCenter.default.addObserver(
+            forName: .init("BiometricDataRequest"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleBiometricDataRequest()
+        }
+    }
+
+    /// Handle biometric data request from iOS
+    /// When actively monitoring: send current PPG confidence and heart rate
+    /// When not active: send last ECG reading if available
+    private func handleBiometricDataRequest() {
+        let userName = enrolledUserName ?? "Unknown"
+        let authenticated = authenticationState != .unauthenticated
+
+        if isMonitoring {
+            // Active PPG monitoring - send current PPG data
+            let confidence = currentPPGConfidence > 0 ? currentPPGConfidence : currentConfidence
+            let heartRate = Int(healthKit.currentHeartRate)
+
+            print("📡 Sending PPG data to iOS (active): \(Int(confidence * 100))%, HR: \(heartRate)")
+
+            watchConnectivity.sendBiometricDataToiOS(
+                confidence: confidence,
+                heartRate: heartRate,
+                method: "ppg",
+                isActiveMonitoring: true,
+                userName: userName,
+                authenticated: authenticated
+            )
+        } else {
+            // Not actively monitoring - send last ECG reading
+            let confidence = lastECGConfidence > 0 ? lastECGConfidence : currentConfidence
+            let heartRate = Int(healthKit.currentHeartRate)
+
+            print("📡 Sending ECG data to iOS (last reading): \(Int(confidence * 100))%, HR: \(heartRate)")
+
+            watchConnectivity.sendBiometricDataToiOS(
+                confidence: confidence,
+                heartRate: heartRate,
+                method: "ecg",
+                isActiveMonitoring: false,
+                userName: userName,
+                authenticated: authenticated
+            )
+        }
     }
 
     // MARK: - Cleanup
