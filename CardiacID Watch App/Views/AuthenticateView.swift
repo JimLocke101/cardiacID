@@ -22,7 +22,7 @@ struct AuthenticateView: View {
     @State private var isAuthenticating = false
     @State private var authenticateButtonColor: Color = .blue
     @State private var isSearchingForPhone = false
-    @State private var searchCountdown: Int = 90
+    @State private var searchCountdown: Int = 60
     @State private var searchTimer: Timer?
     @State private var isPulsating = false
     @State private var isMuted = false
@@ -505,7 +505,7 @@ struct AuthenticateView: View {
 
         isPulsating = true
         isSearchingForPhone = true
-        searchCountdown = 90
+        searchCountdown = 60
 
         searchTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] timer in
             if searchCountdown > 0 {
@@ -528,7 +528,7 @@ struct AuthenticateView: View {
         searchTimer = nil
         isSearchingForPhone = false
         isPulsating = false
-        searchCountdown = 90
+        searchCountdown = 60
         WKInterfaceDevice.current().play(.stop)
     }
 
@@ -548,13 +548,13 @@ struct AuthenticateView: View {
     private func handleSearchTimeout() {
         isSearchingForPhone = false
         isPulsating = false
-        searchCountdown = 90
+        searchCountdown = 60
 
         if !isMuted {
             WKInterfaceDevice.current().play(.failure)
         }
 
-        print("⏱ iPhone search timed out after 90 seconds")
+        print("⏱ iPhone search timed out after 60 seconds")
     }
 }
 

@@ -130,10 +130,10 @@ class WatchConnectivityService: NSObject, ObservableObject {
 
     // MARK: - Connection State Management
 
-    /// Timer for periodic state refresh
+    /// Timer for periodic state refresh (syncs with biometric data updates)
     private var stateRefreshTimer: Timer?
 
-    /// Update connection state from session
+    /// Update connection state from session and request biometric data
     func updateConnectionState() {
         #if os(iOS)
         let currentPaired = session.isPaired
@@ -148,6 +148,11 @@ class WatchConnectivityService: NSObject, ObservableObject {
         if isActivated != currentActivated { isActivated = currentActivated }
 
         print("📱 WatchConnectivity State - Paired: \(isPaired), Installed: \(isInstalled), Reachable: \(isReachable), Activated: \(isActivated)")
+
+        // Request biometric data update if connected
+        if currentReachable {
+            requestBiometricDataUpdate()
+        }
         #elseif os(watchOS)
         let currentReachable = session.isReachable
         let currentActivated = session.activationState == .activated
@@ -159,8 +164,27 @@ class WatchConnectivityService: NSObject, ObservableObject {
         #endif
     }
 
-    /// Start periodic state refresh to catch pairing changes
-    func startPeriodicStateRefresh(interval: TimeInterval = 3.0) {
+    /// Request biometric data update from Watch
+    private func requestBiometricDataUpdate() {
+        #if os(iOS)
+        guard session.isReachable else { return }
+
+        let message: [String: Any] = [
+            "type": "biometric_data_request",
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        session.sendMessage(message, replyHandler: { reply in
+            print("📱 Received biometric data reply: \(reply)")
+        }) { error in
+            print("📱 Biometric data request failed: \(error.localizedDescription)")
+        }
+        #endif
+    }
+
+    /// Start periodic state refresh to catch pairing changes and update biometric data
+    /// Default interval is 60 seconds (1 minute) for biometric data sync
+    func startPeriodicStateRefresh(interval: TimeInterval = 60.0) {
         stopPeriodicStateRefresh()
 
         stateRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
@@ -168,7 +192,7 @@ class WatchConnectivityService: NSObject, ObservableObject {
                 self?.updateConnectionState()
             }
         }
-        print("📱 Started periodic state refresh with interval: \(interval)s")
+        print("📱 Started periodic state refresh with interval: \(interval)s (Live Biometric Data sync)")
     }
 
     /// Stop periodic state refresh
