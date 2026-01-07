@@ -128,6 +128,66 @@ class WatchConnectivityService: NSObject, ObservableObject {
         print("WatchConnectivityService: Monitoring stopped")
     }
 
+    // MARK: - Connection State Management
+
+    /// Timer for periodic state refresh
+    private var stateRefreshTimer: Timer?
+
+    /// Update connection state from session
+    func updateConnectionState() {
+        #if os(iOS)
+        let currentPaired = session.isPaired
+        let currentInstalled = session.isWatchAppInstalled
+        let currentReachable = session.isReachable
+        let currentActivated = session.activationState == .activated
+
+        // Only update if changed to avoid unnecessary UI updates
+        if isPaired != currentPaired { isPaired = currentPaired }
+        if isInstalled != currentInstalled { isInstalled = currentInstalled }
+        if isReachable != currentReachable { isReachable = currentReachable }
+        if isActivated != currentActivated { isActivated = currentActivated }
+
+        print("📱 WatchConnectivity State - Paired: \(isPaired), Installed: \(isInstalled), Reachable: \(isReachable), Activated: \(isActivated)")
+        #elseif os(watchOS)
+        let currentReachable = session.isReachable
+        let currentActivated = session.activationState == .activated
+
+        if isReachable != currentReachable { isReachable = currentReachable }
+        if isActivated != currentActivated { isActivated = currentActivated }
+
+        print("⌚ WatchConnectivity State - Reachable: \(isReachable), Activated: \(isActivated)")
+        #endif
+    }
+
+    /// Start periodic state refresh to catch pairing changes
+    func startPeriodicStateRefresh(interval: TimeInterval = 3.0) {
+        stopPeriodicStateRefresh()
+
+        stateRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateConnectionState()
+            }
+        }
+        print("📱 Started periodic state refresh with interval: \(interval)s")
+    }
+
+    /// Stop periodic state refresh
+    func stopPeriodicStateRefresh() {
+        stateRefreshTimer?.invalidate()
+        stateRefreshTimer = nil
+    }
+
+    /// Start connection keep-alive pings
+    func startConnectionKeepAlive(interval: TimeInterval = 15.0) {
+        // Placeholder for keep-alive implementation
+        print("📱 Connection keep-alive started with interval: \(interval)s")
+    }
+
+    /// Stop connection keep-alive
+    func stopConnectionKeepAlive() {
+        print("📱 Connection keep-alive stopped")
+    }
+
     // MARK: - Authentication Methods
 
     #if os(iOS)

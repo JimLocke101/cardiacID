@@ -9,9 +9,49 @@ import SwiftUI
 import CoreData
 import HealthKit
 import Combine
+#if canImport(MSAL)
+import MSAL
+#endif
+
+// MARK: - App Delegate for MSAL URL Handling
+/// AppDelegate is required by MSAL to handle OAuth callback URLs
+/// This enables Microsoft authentication flow to complete properly
+class AppDelegate: NSObject, UIApplicationDelegate {
+
+    /// Handle URL callbacks from Microsoft authentication
+    /// This is called when the user returns from the Microsoft sign-in page
+    func application(_ app: UIApplication,
+                     open url: URL,
+                     options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+
+        print("📱 MSAL: Received URL callback: \(url.absoluteString)")
+
+        #if canImport(MSAL)
+        // Let MSAL handle the authentication response
+        let handled = MSALPublicClientApplication.handleMSALResponse(
+            url,
+            sourceApplication: options[UIApplication.OpenURLOptionsKey.sourceApplication] as? String
+        )
+
+        if handled {
+            print("✅ MSAL: Successfully handled authentication callback")
+        } else {
+            print("⚠️ MSAL: URL was not handled by MSAL")
+        }
+
+        return handled
+        #else
+        return false
+        #endif
+    }
+}
 
 @main
 struct CardiacIDApp: App {
+    // MARK: - App Delegate for MSAL
+    /// Connect the AppDelegate for MSAL URL handling
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     // Services and controllers
     let persistenceController = PersistenceController.shared
     @StateObject private var authManager = AuthenticationManager()
@@ -87,9 +127,24 @@ struct CardiacIDApp: App {
                 // Refresh data when app enters foreground
                 if authViewModel.isAuthenticated {
                     authManager.refreshAuthenticationStatus()
-                    // Check watch connection status
-                    print("Watch is reachable: \(watchConnectivity.isReachable)")
                 }
+
+                // Always refresh Watch connection when entering foreground
+                watchConnectivity.updateConnectionState()
+                print("📱 Watch state on foreground - Paired: \(watchConnectivity.isPaired), Installed: \(watchConnectivity.isInstalled), Reachable: \(watchConnectivity.isReachable)")
+            }
+            // MARK: - MSAL URL Handler (iOS 14+)
+            // Handle OAuth callback URLs from Microsoft authentication
+            .onOpenURL { url in
+                print("📱 MSAL: Received URL via onOpenURL: \(url.absoluteString)")
+
+                #if canImport(MSAL)
+                let handled = MSALPublicClientApplication.handleMSALResponse(
+                    url,
+                    sourceApplication: nil
+                )
+                print(handled ? "✅ MSAL: URL handled successfully" : "⚠️ MSAL: URL not handled")
+                #endif
             }
         }
         .onChange(of: scenePhase) {
@@ -114,20 +169,34 @@ struct CardiacIDApp: App {
         Task {
             // Initialize services
             debugLog.watch("Initializing watch connectivity service...")
-            // Watch connectivity is automatically activated
-            
+
+            // CRITICAL: Explicitly start Watch monitoring
+            // This ensures WCSession is activated and state is tracked
+            await MainActor.run {
+                watchConnectivity.startMonitoring()
+                watchConnectivity.updateConnectionState()
+
+                // Start periodic refresh to ensure we catch pairing state
+                watchConnectivity.startPeriodicStateRefresh(interval: 3.0)
+
+                debugLog.watch("Watch connectivity initialized - Paired: \(watchConnectivity.isPaired), Installed: \(watchConnectivity.isInstalled), Reachable: \(watchConnectivity.isReachable)")
+            }
+
             debugLog.health("Setting up HealthKit store...")
             authManager.setupHealthStore()
-            
+
             // Simulate additional initialization time for better UX
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            
+
             // Mark app as ready
             await MainActor.run {
                 isAppReady = true
                 debugLog.info("App initialization completed")
+
+                // Log final watch state
+                debugLog.watch("Final watch state - Paired: \(watchConnectivity.isPaired), Installed: \(watchConnectivity.isInstalled), Reachable: \(watchConnectivity.isReachable)")
             }
-            
+
             // Note: Launch screen dismissal is now handled by user interaction
             // The launch screen will dismiss itself after user makes a choice
         }

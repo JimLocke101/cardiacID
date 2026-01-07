@@ -231,66 +231,91 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
     var errorMessagePublisher: Published<String?>.Publisher { $errorMessage }
 
     // MARK: - Configuration
+    /// Tenant ID - uses MSALConfiguration as primary source (hardcoded from Azure Portal)
     private var tenantId: String {
-        return (try? credentialManager.retrieve(forKey: .entraIDTenantID)) ?? ""
+        // Use MSALConfiguration values - these are from your Azure App Registration
+        return MSALConfiguration.tenantID
     }
 
+    /// Client ID - uses MSALConfiguration as primary source (hardcoded from Azure Portal)
     private var clientId: String {
-        return (try? credentialManager.retrieve(forKey: .entraIDClientID)) ?? ""
+        // Use MSALConfiguration values - these are from your Azure App Registration
+        return MSALConfiguration.clientID
     }
 
+    /// Redirect URI - uses MSALConfiguration format for MSAL
     private var redirectUri: String {
-        return environmentConfig.entraIDRedirectURI
+        return MSALConfiguration.redirectURI
+    }
+
+    /// Authority URL for authentication
+    private var authorityURL: String {
+        return MSALConfiguration.authority
+    }
+
+    /// Scopes to request during authentication
+    private var scopes: [String] {
+        return MSALConfiguration.enterpriseScopes
     }
 
     // MARK: - Initialization
 
     override init() {
         super.init()
-        
+
         // Register with service state manager
         serviceStateManager.registerService(ServiceStateManager.entraIDService, initialState: .available)
-        
+
         Task {
             await initializeMSAL()
         }
     }
 
     private func initializeMSAL() async {
-        guard !tenantId.isEmpty && !clientId.isEmpty else {
-            print("⚠️ EntraID credentials not configured")
-            print("💡 Please configure tenant ID and client ID in CredentialSetupView")
-            
-            // Put service on hold due to missing credentials
+        // Validate configuration first
+        guard MSALConfiguration.validate() else {
+            print("⚠️ MSAL Configuration validation failed")
             await putOnHoldAsync(reason: .missingCredentials)
             return
         }
+
+        // Print configuration for debugging
+        MSALConfiguration.printConfiguration()
 
         updateServiceState(.connecting)
 
         #if canImport(MSAL)
         do {
-            // Create MSAL authority
-            let authorityURL = URL(string: "\(environmentConfig.entraIDAuthority)/\(tenantId)")!
-            let authority = try MSALAADAuthority(url: authorityURL)
+            // Create MSAL authority using MSALConfiguration
+            let authorityURLString = MSALConfiguration.authority
+            guard let authorityURLValue = URL(string: authorityURLString) else {
+                throw EntraIDError.notConfigured
+            }
+            let authority = try MSALAADAuthority(url: authorityURLValue)
 
-            // Create MSAL configuration
+            // Create MSAL configuration with values from MSALConfiguration
             let msalConfiguration = MSALPublicClientApplicationConfig(
-                clientId: clientId,
-                redirectUri: redirectUri,
+                clientId: MSALConfiguration.clientID,
+                redirectUri: MSALConfiguration.redirectURI,
                 authority: authority
             )
 
-            // Additional configuration
+            // Additional configuration for multi-org support
             msalConfiguration.knownAuthorities = [authority]
 
             // Initialize MSAL application
             self.msalApplication = try MSALPublicClientApplication(configuration: msalConfiguration)
 
-            print("✅ MSAL initialized successfully")
-            print("   Tenant: \(tenantId)")
-            print("   Client ID: \(clientId)")
-            print("   Redirect URI: \(redirectUri)")
+            print("""
+            ╔═══════════════════════════════════════════════════════════════════════╗
+            ║  ✅ MSAL INITIALIZED SUCCESSFULLY                                      ║
+            ╠═══════════════════════════════════════════════════════════════════════╣
+            ║  App Name:      \(MSALConfiguration.displayName.padding(toLength: 45, withPad: " ", startingAt: 0)) ║
+            ║  Client ID:     \(MSALConfiguration.clientID.padding(toLength: 45, withPad: " ", startingAt: 0)) ║
+            ║  Tenant ID:     \(MSALConfiguration.tenantID.padding(toLength: 45, withPad: " ", startingAt: 0)) ║
+            ║  Redirect URI:  \(MSALConfiguration.redirectURI.padding(toLength: 45, withPad: " ", startingAt: 0)) ║
+            ╚═══════════════════════════════════════════════════════════════════════╝
+            """)
 
             updateServiceState(.available)
 
@@ -299,15 +324,17 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
 
         } catch {
             print("❌ Failed to initialize MSAL: \(error)")
+            print("   Error details: \(error.localizedDescription)")
             errorMessage = "MSAL initialization failed: \(error.localizedDescription)"
             lastError = error
             await putOnHoldAsync(reason: .configurationRequired)
         }
         #else
         // MSAL not available, put service on hold
+        print("⚠️ MSAL framework not imported - check Package.swift dependencies")
         await putOnHoldAsync(reason: HoldStateInfo(
             reason: "MSAL framework not available",
-            suggestedAction: "Add MSAL package dependency",
+            suggestedAction: "Add MSAL package dependency to Package.swift",
             canRetry: false,
             estimatedResolution: nil
         ))
@@ -337,15 +364,13 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
         // Create web view parameters
         let webParameters = MSALWebviewParameters(authPresentationViewController: viewController)
 
-        // Define scopes for Microsoft Graph API
-        let scopes = [
-            "User.Read",
-            "Application.Read.All",
-            "Group.Read.All"
-        ]
+        // Use scopes from MSALConfiguration
+        let requestScopes = MSALConfiguration.enterpriseScopes
+
+        print("📱 Requesting MSAL authentication with scopes: \(requestScopes)")
 
         // Create interactive parameters
-        let interactiveParameters = MSALInteractiveTokenParameters(scopes: scopes, webviewParameters: webParameters)
+        let interactiveParameters = MSALInteractiveTokenParameters(scopes: requestScopes, webviewParameters: webParameters)
 
         do {
             // Acquire token interactively
@@ -466,15 +491,11 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
             throw EntraIDError.noAccountFound
         }
 
-        // Define scopes
-        let scopes = [
-            "User.Read",
-            "Application.Read.All",
-            "Group.Read.All"
-        ]
+        // Use scopes from MSALConfiguration
+        let requestScopes = MSALConfiguration.enterpriseScopes
 
         // Create silent parameters
-        let silentParameters = MSALSilentTokenParameters(scopes: scopes, account: account)
+        let silentParameters = MSALSilentTokenParameters(scopes: requestScopes, account: account)
 
         do {
             // Acquire token silently

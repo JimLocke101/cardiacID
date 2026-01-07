@@ -41,6 +41,7 @@ struct MenuView: View {
                                 color: .blue
                             )
                         }
+                        .buttonStyle(.plain)
                         .disabled(heartIDService.enrollmentState == .enrolled)
 
                         // Authenticate Button
@@ -52,6 +53,7 @@ struct MenuView: View {
                                 color: .green
                             )
                         }
+                        .buttonStyle(.plain)
                         .disabled(heartIDService.enrollmentState != .enrolled)
 
                         // System Status Button
@@ -63,6 +65,7 @@ struct MenuView: View {
                                 color: .orange
                             )
                         }
+                        .buttonStyle(.plain)
 
                         // Settings Button
                         NavigationLink(destination: SettingsView(heartIDService: heartIDService)) {
@@ -73,6 +76,7 @@ struct MenuView: View {
                                 color: .gray
                             )
                         }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal)
 
@@ -173,29 +177,32 @@ struct MenuButton: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
-                .frame(width: 40)
+        VStack(alignment: .leading, spacing: 6) {
+            // Title at top
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.caption)
+            // Subtitle below title
+            Text(subtitle)
+                .font(.caption2)
                 .foregroundColor(.secondary)
+                .lineLimit(2)
+
+            // Icon at BOTTOM - centered
+            HStack {
+                Spacer()
+                Image(systemName: icon)
+                    .font(.system(size: 28))
+                    .foregroundColor(color)
+                Spacer()
+            }
+            .padding(.top, 4)
         }
-        .padding()
-        .background(Color.gray.opacity(0.1))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.gray.opacity(0.15))
         .cornerRadius(12)
     }
 }
