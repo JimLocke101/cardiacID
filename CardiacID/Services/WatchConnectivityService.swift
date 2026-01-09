@@ -179,32 +179,29 @@ class WatchConnectivityService: NSObject, ObservableObject {
         #endif
     }
 
-    /// Request biometric data update from Watch
+    /// Request biometric data update from Watch (fire and forget - non-blocking)
     private func requestBiometricDataUpdate() {
         #if os(iOS)
         guard session.isReachable else { return }
 
         // Use message_type key for iOS format (Watch expects this)
+        // Fire and forget - no reply handler to prevent blocking
         let message: [String: Any] = [
             "message_type": "biometric_data_request",
             "timestamp": Date().timeIntervalSince1970
         ]
 
-        session.sendMessage(message, replyHandler: { reply in
-            Task { @MainActor in
-                print("📱 Received biometric data reply: \(reply)")
-            }
-        }) { error in
-            Task { @MainActor in
-                print("📱 Biometric data request failed: \(error.localizedDescription)")
-            }
+        // Send without waiting for reply - Watch will send response via separate message
+        session.sendMessage(message, replyHandler: nil) { error in
+            // Only log errors, don't block
+            print("📱 Biometric data request failed: \(error.localizedDescription)")
         }
         #endif
     }
 
     /// Start periodic state refresh to catch pairing changes and update biometric data
-    /// Default interval is 60 seconds (1 minute) for biometric data sync
-    func startPeriodicStateRefresh(interval: TimeInterval = 60.0) {
+    /// Default interval is 6 seconds for responsive connection verification
+    func startPeriodicStateRefresh(interval: TimeInterval = 6.0) {
         stopPeriodicStateRefresh()
 
         stateRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
@@ -212,7 +209,7 @@ class WatchConnectivityService: NSObject, ObservableObject {
                 self?.updateConnectionState()
             }
         }
-        print("📱 Started periodic state refresh with interval: \(interval)s (Live Biometric Data sync)")
+        print("📱 Started periodic state refresh with interval: \(interval)s (connection verification)")
     }
 
     /// Stop periodic state refresh

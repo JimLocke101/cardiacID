@@ -90,10 +90,8 @@ struct MenuView: View {
             .navigationTitle("CardiacID")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .task {
-            // Initialize HeartIDService on app launch
-            await heartIDService.initialize()
-        }
+        // Note: Initialization is now handled by CardiacIDWatchApp.swift
+        // Removed duplicate .task initialization that was causing race conditions
     }
 
     // MARK: - Components

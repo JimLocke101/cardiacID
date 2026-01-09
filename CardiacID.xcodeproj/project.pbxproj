@@ -144,6 +144,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FB5F5BE82F10B0E000BAACDA /* Exceptions for "CardiacID" folder in "CardiacID" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FBF0C0982E70DF24005C425B /* CardiacID */;
+		};
 		FB84559B2F038909009DF160 /* Exceptions for "CardiacID" folder in "CardiacID Watch App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -157,6 +164,7 @@
 		FBF0C09B2E70DF24005C425B /* CardiacID */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				FB5F5BE82F10B0E000BAACDA /* Exceptions for "CardiacID" folder in "CardiacID" target */,
 				FB84559B2F038909009DF160 /* Exceptions for "CardiacID" folder in "CardiacID Watch App" target */,
 			);
 			path = CardiacID;
@@ -819,6 +827,7 @@
 				ENABLE_POINTER_AUTHENTICATION = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CardiacID/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Connecting to Bluetooth";
@@ -860,6 +869,7 @@
 				ENABLE_POINTER_AUTHENTICATION = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CardiacID/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Connecting to Bluetooth";

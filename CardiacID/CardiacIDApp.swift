@@ -176,9 +176,9 @@ struct CardiacIDApp: App {
                 watchConnectivity.startMonitoring()
                 watchConnectivity.updateConnectionState()
 
-                // Start periodic refresh every 60 seconds (1 minute)
-                // This syncs Live Biometric Data with WatchConnectivity State
-                watchConnectivity.startPeriodicStateRefresh(interval: 60.0)
+                // Start periodic refresh every 6 seconds for responsive connection verification
+                // Biometric data syncs via fire-and-forget messages
+                watchConnectivity.startPeriodicStateRefresh(interval: 6.0)
 
                 debugLog.watch("Watch connectivity initialized - Paired: \(watchConnectivity.isPaired), Installed: \(watchConnectivity.isInstalled), Reachable: \(watchConnectivity.isReachable)")
             }

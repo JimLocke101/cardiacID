@@ -258,6 +258,7 @@ class WatchConnectivityService: NSObject, ObservableObject {
     }
 
     /// Send biometric data directly (called by HeartIDService)
+    /// Fire and forget - non-blocking to prevent system hangs
     func sendBiometricDataToiOS(
         confidence: Double,
         heartRate: Int,
@@ -266,6 +267,11 @@ class WatchConnectivityService: NSObject, ObservableObject {
         userName: String,
         authenticated: Bool
     ) {
+        guard let session = session, session.isReachable else {
+            print("⌚️ Watch: iOS not reachable, skipping biometric data send")
+            return
+        }
+
         let message: [String: Any] = [
             "message_type": "biometric_data_response",
             "confidence": confidence,
@@ -277,14 +283,14 @@ class WatchConnectivityService: NSObject, ObservableObject {
             "timestamp": Date().timeIntervalSince1970
         ]
 
-        sendMessage(message) { success in
-            if success {
-                let methodLabel = isActiveMonitoring ? "PPG (active)" : "ECG (last reading)"
-                print("✅ Watch: Sent biometric data to iOS - \(methodLabel): \(Int(confidence * 100))%, HR: \(heartRate) bpm")
-            } else {
-                print("❌ Watch: Failed to send biometric data to iOS")
-            }
+        // Fire and forget - no completion handler to prevent blocking
+        session.sendMessage(message, replyHandler: nil) { error in
+            // Only log errors, don't block
+            print("⌚️ Watch: Biometric data send failed: \(error.localizedDescription)")
         }
+
+        let methodLabel = isActiveMonitoring ? "PPG (active)" : "ECG (last reading)"
+        print("⌚️ Watch: Sent biometric data - \(methodLabel): \(Int(confidence * 100))%, HR: \(heartRate) bpm")
     }
 }
 
@@ -410,8 +416,11 @@ extension WatchConnectivityService: WCSessionDelegate {
 
         case "biometric_data_request":
             // iOS is requesting current biometric data for Live Biometric Data display
+            // Handle asynchronously to prevent blocking
             print("⌚️ Watch: iOS requested biometric data update")
-            sendBiometricDataResponse()
+            DispatchQueue.main.async { [weak self] in
+                self?.sendBiometricDataResponse()
+            }
 
         default:
             print("⚠️ Watch: Unknown iOS message type: \(messageType)")

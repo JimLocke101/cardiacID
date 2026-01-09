@@ -69,8 +69,49 @@ class HeartIDService: ObservableObject {
 
     // MARK: - Initialization
 
+    /// Startup timeout in seconds (45 seconds max)
+    private let startupTimeout: TimeInterval = 45.0
+
+    /// Guard against double initialization
+    private var isInitialized = false
+    private var isInitializing = false
+
     func initialize() async {
+        // Prevent double initialization (causes Watch app shutdown)
+        guard !isInitialized && !isInitializing else {
+            print("⚠️ Watch: Skipping duplicate initialization")
+            return
+        }
+        isInitializing = true
+        // Use TaskGroup with timeout to prevent startup hang
+        let timeout = startupTimeout
+        await withTaskGroup(of: Void.self) { group in
+            // Add initialization task
+            group.addTask { @MainActor in
+                await self.performInitialization()
+            }
+
+            // Add timeout task
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                print("⚠️ Watch: Startup timeout reached (\(timeout)s)")
+            }
+
+            // Wait for first to complete (either init finishes or timeout)
+            await group.next()
+            group.cancelAll()
+        }
+
+        isInitialized = true
+        isInitializing = false
+    }
+
+    /// Perform actual initialization with error handling
+    private func performInitialization() async {
         do {
+            print("⌚️ Watch: Starting initialization...")
+            let startTime = Date()
+
             try await healthKit.requestAuthorization()
 
             if storage.hasTemplate() {
@@ -83,6 +124,9 @@ class HeartIDService: ObservableObject {
                 enrollmentState = .notEnrolled
                 print("ℹ️  User not enrolled - enrollment required")
             }
+
+            let elapsed = Date().timeIntervalSince(startTime)
+            print("✅ Watch: Initialization completed in \(String(format: "%.1f", elapsed))s")
         } catch {
             print("❌ Failed to initialize: \(error)")
         }
@@ -607,7 +651,10 @@ class HeartIDService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handleBiometricDataRequest()
+            // Dispatch to MainActor to satisfy actor isolation
+            Task { @MainActor in
+                self?.handleBiometricDataRequest()
+            }
         }
     }
 
