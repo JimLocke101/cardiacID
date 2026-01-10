@@ -9,6 +9,7 @@ struct LoginView: View {
     @State private var showError = false
     @State private var isAuthenticated = false
     @State private var showingSignUp = false
+    @State private var showPassword = false
 
     @EnvironmentObject private var authViewModel: AuthViewModel
     private let colors = HeartIDColors()
@@ -89,12 +90,26 @@ struct LoginView: View {
                             Text("Password")
                                 .font(.subheadline)
                                 .foregroundColor(colors.text.opacity(0.8))
-                            
-                            SecureField("", text: $password)
-                                .padding()
-                                .background(colors.surface)
-                                .cornerRadius(12)
-                                .foregroundColor(colors.text)
+
+                            HStack {
+                                if showPassword {
+                                    TextField("", text: $password)
+                                        .foregroundColor(colors.text)
+                                } else {
+                                    SecureField("", text: $password)
+                                        .foregroundColor(colors.text)
+                                }
+
+                                Button(action: {
+                                    showPassword.toggle()
+                                }) {
+                                    Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                        .foregroundColor(colors.text.opacity(0.6))
+                                }
+                            }
+                            .padding()
+                            .background(colors.surface)
+                            .cornerRadius(12)
                         }
                     }
                     .padding(.horizontal, 30)

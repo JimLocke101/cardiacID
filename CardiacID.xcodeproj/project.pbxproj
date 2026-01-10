@@ -151,6 +151,13 @@
 			);
 			target = FBF0C0982E70DF24005C425B /* CardiacID */;
 		};
+		FB5F5BEA2F10E0D300BAACDA /* Exceptions for "CardiacID Watch App" folder in "CardiacID Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"CardiacID-Watch-App-Info.plist",
+			);
+			target = FBF0C0BB2E70DF25005C425B /* CardiacID Watch App */;
+		};
 		FB84559B2F038909009DF160 /* Exceptions for "CardiacID" folder in "CardiacID Watch App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -182,6 +189,9 @@
 		};
 		FBF0C0C02E70DF25005C425B /* CardiacID Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FB5F5BEA2F10E0D300BAACDA /* Exceptions for "CardiacID Watch App" folder in "CardiacID Watch App" target */,
+			);
 			path = "CardiacID Watch App";
 			sourceTree = "<group>";
 		};
@@ -753,6 +763,7 @@
 				DEVELOPMENT_TEAM = PYGGR5786Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "CardiacID-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
@@ -788,6 +799,7 @@
 				DEVELOPMENT_TEAM = PYGGR5786Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "CardiacID-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
 				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
