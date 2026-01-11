@@ -245,12 +245,15 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
         do {
             let heartRateData = try JSONDecoder().decode([Double].self, from: heartData)
 
-            // Create a HeartPattern for validation
+            // Create a HeartPattern for validation with required parameters
+            // duration: estimated based on typical heart rate sampling (10 seconds)
+            // encryptedIdentifier: generate a unique identifier for this validation attempt
             let pattern = HeartPattern(
                 heartRateData: heartRateData,
-                confidence: 0.85, // Default confidence for validation
-                qualityScore: 0.8, // Default quality
-                timestamp: Date()
+                duration: 10.0,  // Standard capture duration
+                encryptedIdentifier: UUID().uuidString,
+                qualityScore: 0.8,
+                confidence: 0.85
             )
 
             // Validate using HeartAuthenticationService

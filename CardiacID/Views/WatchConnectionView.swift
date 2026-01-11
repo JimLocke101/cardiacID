@@ -86,8 +86,8 @@ struct WatchConnectionView: View {
 
                 ConnectionStatusRow(
                     label: "Connected",
-                    value: watchConnectivity.isReachable ? "Yes" : "No",
-                    isGood: watchConnectivity.isReachable
+                    value: watchConnectivity.isEffectivelyConnected ? "Yes" : "No",
+                    isGood: watchConnectivity.isEffectivelyConnected
                 )
 
                 ConnectionStatusRow(

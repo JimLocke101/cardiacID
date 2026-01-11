@@ -85,6 +85,34 @@ class WatchConnectivityService: NSObject, ObservableObject {
     @Published private(set) var lastHeartRateTimestamp: Date?
     @Published private(set) var lastError: String?
 
+    // MARK: - Effective Connection Status
+    /// More accurate connection status that considers actual data flow, not just WCSession.isReachable
+    /// Returns true if we've received data from Watch within the last 30 seconds
+    var isEffectivelyConnected: Bool {
+        // If WCSession says reachable, trust it
+        if isReachable { return true }
+
+        // Check for recent heartbeat from Watch (most reliable indicator)
+        if let lastHeartbeat = lastWatchHeartbeat,
+           Date().timeIntervalSince(lastHeartbeat) < 30.0 {
+            return true
+        }
+
+        // Otherwise check if we've received biometric data recently (within 30 seconds)
+        if let lastUpdate = liveBiometricTimestamp,
+           Date().timeIntervalSince(lastUpdate) < 30.0 {
+            return true
+        }
+
+        // Also check heart rate timestamp as fallback
+        if let lastHR = lastHeartRateTimestamp,
+           Date().timeIntervalSince(lastHR) < 30.0 {
+            return true
+        }
+
+        return false
+    }
+
     // MARK: - Live Biometric Data from Watch
 
     /// Current biometric confidence from Watch (PPG when active, ECG when not)
@@ -99,6 +127,8 @@ class WatchConnectivityService: NSObject, ObservableObject {
     @Published private(set) var liveBiometricAuthenticated: Bool = false
     /// Timestamp of last biometric data update
     @Published private(set) var liveBiometricTimestamp: Date?
+    /// Timestamp of last heartbeat received from Watch
+    @Published private(set) var lastWatchHeartbeat: Date?
 
     private let session: WCSession
     private var authCompletionHandler: ((WatchAuthenticationResult) -> Void)?
@@ -790,6 +820,10 @@ extension WatchConnectivityService: WCSessionDelegate {
             // Handle Live Biometric Data response from Watch
             handleBiometricDataResponse(message)
 
+        case "watch_heartbeat":
+            // Handle heartbeat from Watch - update last contact timestamp
+            handleWatchHeartbeat(message)
+
         default:
             print("Unknown Watch message type: \(type)")
         }
@@ -842,6 +876,20 @@ extension WatchConnectivityService: WCSessionDelegate {
                 "authenticated": authenticated
             ]
         )
+    }
+
+    // MARK: - Watch Heartbeat Handler
+
+    /// Handle heartbeat message from Watch - confirms Watch is actively connected
+    private func handleWatchHeartbeat(_ message: [String: Any]) {
+        lastWatchHeartbeat = Date()
+
+        // Log less frequently to avoid spam
+        if let timestamp = message["timestamp"] as? TimeInterval {
+            let watchTime = Date(timeIntervalSince1970: timestamp)
+            let latency = Date().timeIntervalSince(watchTime)
+            print("📱 Received Watch heartbeat - latency: \(String(format: "%.0f", latency * 1000))ms")
+        }
     }
 }
 

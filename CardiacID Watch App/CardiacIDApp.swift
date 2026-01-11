@@ -70,6 +70,10 @@ struct CardiacIDWatchApp: App {
         // HeartIDService.initialize() is designed to not block indefinitely
         await heartIDService.initialize()
 
+        // Start heartbeat to iOS after services are initialized
+        // This ensures iOS knows the Watch is connected even when WCSession.isReachable is intermittent
+        watchConnectivity.startHeartbeat(interval: 10.0)
+
         print("⌚️ ✅ Services initialized")
     }
 }

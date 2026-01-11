@@ -285,11 +285,11 @@ struct DeviceStatusCard: View {
                 HStack {
                     Image(systemName: "applewatch")
                         .foregroundColor(colors.accent.opacity(0.7))
-                    Text(watchConnectivity.isReachable ? "Apple Watch Connected" : "No devices connected")
+                    Text(watchConnectivity.isEffectivelyConnected ? "Apple Watch Connected" : "No devices connected")
                         .font(.subheadline)
                     Spacer()
-                    
-                    if watchConnectivity.isReachable {
+
+                    if watchConnectivity.isEffectivelyConnected {
                         Circle()
                             .fill(colors.success)
                             .frame(width: 8, height: 8)

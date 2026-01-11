@@ -321,6 +321,50 @@ class WatchConnectivityService: NSObject, ObservableObject {
         let methodLabel = isActiveMonitoring ? "PPG (active)" : "ECG (last reading)"
         print("⌚️ Watch: Sent biometric data - \(methodLabel): \(Int(confidence * 100))%, HR: \(heartRate) bpm")
     }
+
+    // MARK: - Periodic Heartbeat to iOS
+
+    /// Timer for sending periodic heartbeat to iOS
+    private var heartbeatTimer: Timer?
+
+    /// Start sending periodic heartbeat messages to iOS
+    /// This ensures iOS knows the Watch is connected even if WCSession.isReachable is intermittently false
+    func startHeartbeat(interval: TimeInterval = 10.0) {
+        stopHeartbeat()
+
+        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            self?.sendHeartbeat()
+        }
+
+        // Send initial heartbeat immediately
+        sendHeartbeat()
+        print("⌚️ Watch: Started heartbeat with interval: \(interval)s")
+    }
+
+    /// Stop sending heartbeat messages
+    func stopHeartbeat() {
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+    }
+
+    /// Send a heartbeat message to iOS to confirm connection
+    private func sendHeartbeat() {
+        guard let session = session, session.isReachable else {
+            return
+        }
+
+        let message: [String: Any] = [
+            "message_type": "watch_heartbeat",
+            "timestamp": Date().timeIntervalSince1970,
+            "is_active": true
+        ]
+
+        // Fire and forget - no completion handler to prevent blocking
+        session.sendMessage(message, replyHandler: nil) { error in
+            // Silently ignore errors - heartbeat is best-effort
+            print("⌚️ Watch: Heartbeat failed (non-critical): \(error.localizedDescription)")
+        }
+    }
 }
 
 // MARK: - WCSessionDelegate
