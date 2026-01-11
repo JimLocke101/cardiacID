@@ -288,6 +288,7 @@ class WatchConnectivityService: NSObject, ObservableObject {
 
     /// Send biometric data directly (called by HeartIDService)
     /// Fire and forget - non-blocking to prevent system hangs
+    /// CRITICAL FIX: Use application context fallback when not reachable
     func sendBiometricDataToiOS(
         confidence: Double,
         heartRate: Int,
@@ -296,8 +297,8 @@ class WatchConnectivityService: NSObject, ObservableObject {
         userName: String,
         authenticated: Bool
     ) {
-        guard let session = session, session.isReachable else {
-            print("⌚️ Watch: iOS not reachable, skipping biometric data send")
+        guard let session = session, session.activationState == .activated else {
+            print("⌚️ Watch: Session not activated, skipping biometric data send")
             return
         }
 
@@ -312,14 +313,33 @@ class WatchConnectivityService: NSObject, ObservableObject {
             "timestamp": Date().timeIntervalSince1970
         ]
 
-        // Fire and forget - no completion handler to prevent blocking
-        session.sendMessage(message, replyHandler: nil) { error in
-            // Only log errors, don't block
-            print("⌚️ Watch: Biometric data send failed: \(error.localizedDescription)")
+        if session.isReachable {
+            // Primary method: send message when reachable
+            session.sendMessage(message, replyHandler: nil) { error in
+                // Only log errors, don't block
+                print("⌚️ Watch: Biometric data send failed: \(error.localizedDescription)")
+                // Try fallback on error
+                self.sendBiometricDataViaContext(message)
+            }
+        } else {
+            // Fallback: use application context when not reachable
+            sendBiometricDataViaContext(message)
         }
 
         let methodLabel = isActiveMonitoring ? "PPG (active)" : "ECG (last reading)"
         print("⌚️ Watch: Sent biometric data - \(methodLabel): \(Int(confidence * 100))%, HR: \(heartRate) bpm")
+    }
+    
+    /// Send biometric data via application context (fallback method)
+    private func sendBiometricDataViaContext(_ message: [String: Any]) {
+        guard let session = session else { return }
+        
+        do {
+            try session.updateApplicationContext(message)
+            print("⌚️ Watch: Biometric data sent via application context (fallback)")
+        } catch {
+            print("⌚️ Watch: Failed to send biometric data via application context: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Periodic Heartbeat to iOS
@@ -329,6 +349,7 @@ class WatchConnectivityService: NSObject, ObservableObject {
 
     /// Start sending periodic heartbeat messages to iOS
     /// This ensures iOS knows the Watch is connected even if WCSession.isReachable is intermittently false
+    /// CRITICAL: Only call this after app is fully initialized to prevent hangs
     func startHeartbeat(interval: TimeInterval = 10.0) {
         stopHeartbeat()
 
@@ -336,9 +357,10 @@ class WatchConnectivityService: NSObject, ObservableObject {
             self?.sendHeartbeat()
         }
 
-        // Send initial heartbeat immediately
-        sendHeartbeat()
-        print("⌚️ Watch: Started heartbeat with interval: \(interval)s")
+        // CRITICAL FIX: Don't send immediate heartbeat - wait for first timer tick
+        // This prevents hangs during initialization
+        // The timer will send the first heartbeat after the interval
+        print("⌚️ Watch: Started heartbeat with interval: \(interval)s (first heartbeat in \(interval)s)")
     }
 
     /// Stop sending heartbeat messages
@@ -348,8 +370,12 @@ class WatchConnectivityService: NSObject, ObservableObject {
     }
 
     /// Send a heartbeat message to iOS to confirm connection
+    /// CRITICAL FIX: Use application context fallback when not reachable
+    /// This ensures iOS knows watch is active even when WCSession.isReachable is false
+    /// CRITICAL: This method must be called from MainActor context to prevent threading issues
+    @MainActor
     private func sendHeartbeat() {
-        guard let session = session, session.isReachable else {
+        guard let session = session, session.activationState == .activated else {
             return
         }
 
@@ -359,10 +385,23 @@ class WatchConnectivityService: NSObject, ObservableObject {
             "is_active": true
         ]
 
-        // Fire and forget - no completion handler to prevent blocking
-        session.sendMessage(message, replyHandler: nil) { error in
-            // Silently ignore errors - heartbeat is best-effort
-            print("⌚️ Watch: Heartbeat failed (non-critical): \(error.localizedDescription)")
+        if session.isReachable {
+            // Primary method: send message when reachable
+            // CRITICAL: Use nil replyHandler to prevent blocking/hangs
+            session.sendMessage(message, replyHandler: nil) { error in
+                // Silently ignore errors - heartbeat is best-effort
+                // Don't log on every failure to avoid spam
+            }
+        } else {
+            // Fallback: use application context when not reachable
+            // This helps establish connection even when reachable is false
+            do {
+                try session.updateApplicationContext(message)
+                // Don't log every heartbeat to avoid console spam
+            } catch {
+                // Silently ignore errors - heartbeat is best-effort
+                // Only log if it's a persistent issue
+            }
         }
     }
 }
@@ -382,6 +421,9 @@ extension WatchConnectivityService: WCSessionDelegate {
             case .activated:
                 self.isConnected = isReachable
                 self.connectionStatus = isReachable ? "Connected to iOS" : "iOS App Not Reachable"
+                // CRITICAL: Don't send heartbeat here - it can cause hangs during initialization
+                // Heartbeat will be started by CardiacIDApp after services are initialized
+                print("⌚️ Watch session activated - Reachable: \(isReachable)")
             case .inactive:
                 self.isConnected = false
                 self.connectionStatus = "Inactive"
@@ -402,6 +444,10 @@ extension WatchConnectivityService: WCSessionDelegate {
         Task { @MainActor in
             self.isConnected = isReachable
             self.connectionStatus = isReachable ? "Connected to iOS" : "iOS App Not Reachable"
+            
+            // CRITICAL: Don't send heartbeat here - it can cause hangs if called too frequently
+            // The periodic heartbeat timer will handle regular heartbeats
+            print("⌚️ Watch: iOS reachability changed - Reachable: \(isReachable)")
         }
     }
 
@@ -460,10 +506,15 @@ extension WatchConnectivityService: WCSessionDelegate {
         // Capture message copy for async dispatch
         let messageCopy = message
 
-        // For other messages, dispatch to main actor and send acknowledgment
+        // CRITICAL FIX: For messages with replyHandler, we must acknowledge immediately
+        // to prevent iOS timeout, then process asynchronously
+        // Send immediate acknowledgment
+        replyHandler(["status": "received"])
+        
+        // Process message asynchronously (don't block the delegate)
         Task { @MainActor in
             self.lastMessage = messageCopy
-            self.handleReceivedMessage(messageCopy, replyHandler: replyHandler)
+            self.handleReceivedMessage(messageCopy, replyHandler: nil)
         }
     }
 

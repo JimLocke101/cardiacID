@@ -72,6 +72,7 @@ struct CardiacIDWatchApp: App {
 
         // Start heartbeat to iOS after services are initialized
         // This ensures iOS knows the Watch is connected even when WCSession.isReachable is intermittent
+        // CRITICAL: Start immediately to establish connection, don't wait for reachable to be true
         watchConnectivity.startHeartbeat(interval: 10.0)
 
         print("⌚️ ✅ Services initialized")

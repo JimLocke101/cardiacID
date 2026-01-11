@@ -207,9 +207,17 @@ class WatchConnectivityService: NSObject, ObservableObject {
 
         print("📱 WatchConnectivity State - Paired: \(isPaired), Installed: \(isInstalled), Reachable: \(isReachable), Activated: \(isActivated)")
 
-        // Request biometric data update if connected
-        if currentReachable {
-            requestBiometricDataUpdate()
+        // CRITICAL FIX: Try to establish connection even when not reachable
+        // If activated but not reachable, proactively attempt connection
+        if currentActivated && currentPaired && currentInstalled {
+            if currentReachable {
+                // Connected - request biometric data update
+                requestBiometricDataUpdate()
+            } else {
+                // Not reachable but activated - try to establish connection
+                // Use application context as fallback or send ping to wake up watch
+                attemptConnectionRecovery()
+            }
         }
         #elseif os(watchOS)
         let currentReachable = session.isReachable
@@ -221,11 +229,36 @@ class WatchConnectivityService: NSObject, ObservableObject {
         print("⌚ WatchConnectivity State - Reachable: \(isReachable), Activated: \(isActivated)")
         #endif
     }
+    
+    /// Attempt to recover connection when activated but not reachable
+    private func attemptConnectionRecovery() {
+        #if os(iOS)
+        guard session.activationState == .activated else { return }
+        
+        // Try sending a ping to wake up the watch connection
+        // This helps establish reachability when watch is active but connection is stale
+        sendPing { [weak self] success, latency in
+            if success {
+                print("📱 Connection recovery successful via ping - latency: \(String(format: "%.0f", (latency ?? 0) * 1000))ms")
+                // Now that we're connected, request biometric data
+                self?.requestBiometricDataUpdate()
+            } else {
+                // If ping fails, try application context as fallback
+                print("📱 Ping failed, attempting application context fallback")
+                self?.requestBiometricDataUpdateViaContext()
+            }
+        }
+        #endif
+    }
 
     /// Request biometric data update from Watch (fire and forget - non-blocking)
     private func requestBiometricDataUpdate() {
         #if os(iOS)
-        guard session.isReachable else { return }
+        guard session.isReachable else {
+            // Fallback to application context if not reachable
+            requestBiometricDataUpdateViaContext()
+            return
+        }
 
         // Use message_type key for iOS format (Watch expects this)
         // Fire and forget - no reply handler to prevent blocking
@@ -238,6 +271,27 @@ class WatchConnectivityService: NSObject, ObservableObject {
         session.sendMessage(message, replyHandler: nil) { error in
             // Only log errors, don't block
             print("📱 Biometric data request failed: \(error.localizedDescription)")
+            // Fallback to application context on error
+            self.requestBiometricDataUpdateViaContext()
+        }
+        #endif
+    }
+    
+    /// Request biometric data via application context (fallback when not reachable)
+    private func requestBiometricDataUpdateViaContext() {
+        #if os(iOS)
+        guard session.activationState == .activated else { return }
+        
+        let message: [String: Any] = [
+            "message_type": "biometric_data_request",
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        
+        do {
+            try session.updateApplicationContext(message)
+            print("📱 Biometric data request sent via application context (fallback)")
+        } catch {
+            print("📱 Failed to send biometric data request via application context: \(error.localizedDescription)")
         }
         #endif
     }
@@ -536,6 +590,11 @@ extension WatchConnectivityService: WCSessionDelegate {
             if let error = error {
                 print("Watch session activation error: \(error.localizedDescription)")
                 self.errorSubject.send("Watch connection error: \(error.localizedDescription)")
+            } else if activationState == .activated {
+                // CRITICAL FIX: When session activates, immediately check connection state
+                // This helps establish reachability right after activation
+                self.updateConnectionState()
+                print("📱 Watch session activated - checking connection state")
             }
         }
     }
