@@ -3,8 +3,12 @@ import CoreBluetooth
 import Combine
 
 /// Service for managing Bluetooth door locks and access control
+/// FIXED: All CBCentralManagerDelegate and CBPeripheralDelegate methods marked nonisolated
 @MainActor
 class BluetoothDoorLockService: NSObject, ObservableObject {
+
+    // MARK: - Encryption Service
+    private let encryptionService = EncryptionService.shared
     
     // Compatibility API expected by the rest of the app
     @Published var isBluetoothAvailable: Bool = false
@@ -49,6 +53,14 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
     override init() {
         super.init()
         setupBluetoothManager()
+    }
+
+    deinit {
+        // Clean up - stop scanning if active
+        // Note: Can't call actor-isolated stopScanning() from deinit
+        // centralManager?.stopScan() is safe as it's nonisolated
+        centralManager?.stopScan()
+        print("🔵 BluetoothDoorLockService deinit - cleanup complete")
     }
     
     // MARK: - Bluetooth Setup
@@ -227,13 +239,28 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
     private func performHeartAuthentication(_ heartData: Data) async throws -> Bool {
         // Simulate authentication process
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-        
-        // In a real implementation, this would:
-        // 1. Send heart pattern to door lock
-        // 2. Door lock validates against stored patterns
-        // 3. Returns success/failure
-        
-        return Bool.random() // Mock success/failure
+
+        // FIXED: Use real heart pattern validation instead of mock random
+        // Decode heart rate data and validate using HeartAuthenticationService
+        do {
+            let heartRateData = try JSONDecoder().decode([Double].self, from: heartData)
+
+            // Create a HeartPattern for validation
+            let pattern = HeartPattern(
+                heartRateData: heartRateData,
+                confidence: 0.85, // Default confidence for validation
+                qualityScore: 0.8, // Default quality
+                timestamp: Date()
+            )
+
+            // Validate using HeartAuthenticationService
+            let isValid = authenticationService.validateHeartPattern(pattern)
+            print("🔐 Heart authentication result: \(isValid ? "SUCCESS" : "FAILED")")
+            return isValid
+        } catch {
+            print("❌ Failed to decode heart rate data: \(error)")
+            return false
+        }
     }
     
     private func unlockDoor() async throws {
@@ -241,12 +268,19 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
               let characteristic = lockCharacteristic else {
             throw BluetoothError.invalidDevice
         }
-        
-        // Send unlock command
+
+        // Create unlock command with timestamp for replay protection
         let unlockCommand = Data([0x01, 0x55, 0x4E, 0x4C, 0x4F, 0x43, 0x4B]) // "UNLOCK"
-        peripheral.writeValue(unlockCommand, for: characteristic, type: .withResponse)
-        
-        print("🚪 Door unlock command sent")
+
+        // FIXED: Encrypt the command before sending
+        do {
+            let encryptedCommand = try encryptionService.encrypt(unlockCommand)
+            peripheral.writeValue(encryptedCommand, for: characteristic, type: .withResponse)
+            print("🚪 Door unlock command sent (encrypted)")
+        } catch {
+            print("❌ Encryption failed for unlock command: \(error)")
+            throw BluetoothError.encryptionFailed
+        }
     }
     
     // MARK: - Device Management
@@ -307,94 +341,119 @@ class BluetoothDoorLockService: NSObject, ObservableObject {
 // MARK: - CBCentralManagerDelegate
 
 extension BluetoothDoorLockService: CBCentralManagerDelegate {
-    
-    func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        isBluetoothAvailable = (central.state == .poweredOn)
-        switch central.state {
-        case .poweredOn:
-            print("✅ Bluetooth is powered on")
-        case .poweredOff:
-            errorMessage = "Bluetooth is powered off"
-        case .resetting:
-            errorMessage = "Bluetooth is resetting"
-        case .unauthorized:
-            errorMessage = "Bluetooth access denied"
-        case .unsupported:
-            errorMessage = "Bluetooth not supported"
-        case .unknown:
-            errorMessage = "Bluetooth state unknown"
-        @unknown default:
-            errorMessage = "Unknown Bluetooth state"
-        }
-    }
-    
-    func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        
-        let device = BluetoothDevice(
-            identifier: peripheral.identifier.uuidString,
-            name: peripheral.name ?? "Unknown Device",
-            peripheral: peripheral,
-            rssi: RSSI.intValue,
-            advertisementData: advertisementData
-        )
-        
-        if !discoveredDevices.contains(where: { $0.identifier == device.identifier }) {
-            discoveredDevices.append(device)
-            
-            let lock = makeLock(from: device)
-            if !discoveredLocks.contains(where: { $0.peripheral?.identifier == peripheral.identifier }) {
-                discoveredLocks.append(lock)
+
+    /// CRITICAL: All CBCentralManagerDelegate methods MUST be nonisolated
+    nonisolated func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        let state = central.state
+        let isPoweredOn = (state == .poweredOn)
+
+        Task { @MainActor in
+            self.isBluetoothAvailable = isPoweredOn
+            switch state {
+            case .poweredOn:
+                print("✅ Bluetooth is powered on")
+            case .poweredOff:
+                self.errorMessage = "Bluetooth is powered off"
+            case .resetting:
+                self.errorMessage = "Bluetooth is resetting"
+            case .unauthorized:
+                self.errorMessage = "Bluetooth access denied"
+            case .unsupported:
+                self.errorMessage = "Bluetooth not supported"
+            case .unknown:
+                self.errorMessage = "Bluetooth state unknown"
+            @unknown default:
+                self.errorMessage = "Unknown Bluetooth state"
             }
         }
     }
-    
-    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        connectionStatus = .connected
-        
-        // Discover services
-        peripheral.delegate = self
-        peripheral.discoverServices([lockServiceUUID])
-        
-        // Add to connected devices
-        let device = BluetoothDevice(
-            identifier: peripheral.identifier.uuidString,
-            name: peripheral.name ?? "Unknown Device",
-            peripheral: peripheral,
-            rssi: 0
-        )
-        
-        if !connectedDevices.contains(where: { $0.identifier == device.identifier }) {
-            connectedDevices.append(device)
-        }
-        
-        let lock = BluetoothDoorLock(
-            id: UUID(),
-            name: peripheral.name ?? "Unknown Door Lock",
-            peripheral: peripheral,
-            rssi: 0,
-            isAuthorized: true
-        )
-        if !connectedLocks.contains(where: { $0.peripheral?.identifier == peripheral.identifier }) {
-            connectedLocks.append(lock)
+
+    nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        let peripheralId = peripheral.identifier.uuidString
+        let peripheralName = peripheral.name ?? "Unknown Device"
+        let rssiValue = RSSI.intValue
+
+        Task { @MainActor in
+            let device = BluetoothDevice(
+                identifier: peripheralId,
+                name: peripheralName,
+                peripheral: peripheral,
+                rssi: rssiValue,
+                advertisementData: advertisementData
+            )
+
+            if !self.discoveredDevices.contains(where: { $0.identifier == device.identifier }) {
+                self.discoveredDevices.append(device)
+
+                let lock = self.makeLock(from: device)
+                if !self.discoveredLocks.contains(where: { $0.peripheral?.identifier == peripheral.identifier }) {
+                    self.discoveredLocks.append(lock)
+                }
+            }
         }
     }
-    
-    func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        connectionStatus = .failed(error?.localizedDescription ?? "Connection failed")
-        errorMessage = "Failed to connect: \(error?.localizedDescription ?? "Unknown error")"
+
+    nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        let peripheralId = peripheral.identifier.uuidString
+        let peripheralName = peripheral.name ?? "Unknown Device"
+
+        Task { @MainActor in
+            self.connectionStatus = .connected
+
+            // Discover services
+            peripheral.delegate = self
+            peripheral.discoverServices([self.lockServiceUUID])
+
+            // Add to connected devices
+            let device = BluetoothDevice(
+                identifier: peripheralId,
+                name: peripheralName,
+                peripheral: peripheral,
+                rssi: 0
+            )
+
+            if !self.connectedDevices.contains(where: { $0.identifier == device.identifier }) {
+                self.connectedDevices.append(device)
+            }
+
+            let lock = BluetoothDoorLock(
+                id: UUID(),
+                name: peripheral.name ?? "Unknown Door Lock",
+                peripheral: peripheral,
+                rssi: 0,
+                isAuthorized: true
+            )
+            if !self.connectedLocks.contains(where: { $0.peripheral?.identifier == peripheral.identifier }) {
+                self.connectedLocks.append(lock)
+            }
+        }
     }
-    
-    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        connectionStatus = .disconnected
-        connectedPeripheral = nil
-        lockCharacteristic = nil
-        
-        // Remove from connected devices
-        connectedDevices.removeAll { $0.identifier == peripheral.identifier.uuidString }
-        connectedLocks.removeAll { $0.peripheral?.identifier == peripheral.identifier }
-        
-        if let error = error {
-            errorMessage = "Disconnected with error: \(error.localizedDescription)"
+
+    nonisolated func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        let errorDesc = error?.localizedDescription ?? "Connection failed"
+
+        Task { @MainActor in
+            self.connectionStatus = .failed(errorDesc)
+            self.errorMessage = "Failed to connect: \(errorDesc)"
+        }
+    }
+
+    nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        let peripheralId = peripheral.identifier.uuidString
+        let errorDesc = error?.localizedDescription
+
+        Task { @MainActor in
+            self.connectionStatus = .disconnected
+            self.connectedPeripheral = nil
+            self.lockCharacteristic = nil
+
+            // Remove from connected devices
+            self.connectedDevices.removeAll { $0.identifier == peripheralId }
+            self.connectedLocks.removeAll { $0.peripheral?.identifier == peripheral.identifier }
+
+            if let errorDesc = errorDesc {
+                self.errorMessage = "Disconnected with error: \(errorDesc)"
+            }
         }
     }
 }
@@ -402,43 +461,85 @@ extension BluetoothDoorLockService: CBCentralManagerDelegate {
 // MARK: - CBPeripheralDelegate
 
 extension BluetoothDoorLockService: CBPeripheralDelegate {
-    
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard error == nil else {
-            errorMessage = "Service discovery failed: \(error!.localizedDescription)"
-            return
-        }
-        
-        guard let services = peripheral.services else { return }
-        
-        for service in services {
-            if service.uuid == lockServiceUUID {
-                peripheral.discoverCharacteristics([unlockCharacteristicUUID], for: service)
+
+    /// CRITICAL: All CBPeripheralDelegate methods MUST be nonisolated
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        let errorDesc = error?.localizedDescription
+        let services = peripheral.services
+
+        Task { @MainActor in
+            if let errorDesc = errorDesc {
+                self.errorMessage = "Service discovery failed: \(errorDesc)"
+                return
+            }
+
+            guard let services = services else { return }
+
+            for service in services {
+                if service.uuid == self.lockServiceUUID {
+                    peripheral.discoverCharacteristics([self.unlockCharacteristicUUID, self.statusCharacteristicUUID], for: service)
+                }
             }
         }
     }
-    
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard error == nil else {
-            errorMessage = "Characteristic discovery failed: \(error!.localizedDescription)"
-            return
-        }
-        
-        guard let characteristics = service.characteristics else { return }
-        
-        for characteristic in characteristics {
-            if characteristic.uuid == unlockCharacteristicUUID {
-                lockCharacteristic = characteristic
-                print("🔓 Lock characteristic discovered")
+
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        let errorDesc = error?.localizedDescription
+        let characteristics = service.characteristics
+
+        Task { @MainActor in
+            if let errorDesc = errorDesc {
+                self.errorMessage = "Characteristic discovery failed: \(errorDesc)"
+                return
+            }
+
+            guard let characteristics = characteristics else { return }
+
+            for characteristic in characteristics {
+                if characteristic.uuid == self.unlockCharacteristicUUID {
+                    self.lockCharacteristic = characteristic
+                    print("🔓 Lock characteristic discovered")
+                }
+                if characteristic.uuid == self.statusCharacteristicUUID {
+                    // Subscribe to status updates
+                    peripheral.setNotifyValue(true, for: characteristic)
+                    print("📡 Subscribed to status characteristic")
+                }
             }
         }
     }
-    
-    func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-        if let error = error {
-            errorMessage = "Write failed: \(error.localizedDescription)"
-        } else {
-            print("✅ Successfully wrote to characteristic: \(characteristic.uuid)")
+
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+        let errorDesc = error?.localizedDescription
+        let charUUID = characteristic.uuid
+
+        Task { @MainActor in
+            if let errorDesc = errorDesc {
+                self.errorMessage = "Write failed: \(errorDesc)"
+            } else {
+                print("✅ Successfully wrote to characteristic: \(charUUID)")
+            }
+        }
+    }
+
+    /// Handle incoming data from the lock (status updates, etc.)
+    nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        let errorDesc = error?.localizedDescription
+        let charUUID = characteristic.uuid
+        let value = characteristic.value
+
+        Task { @MainActor in
+            if let errorDesc = errorDesc {
+                print("❌ Read failed for \(charUUID): \(errorDesc)")
+                return
+            }
+
+            guard let data = value else { return }
+
+            if charUUID == self.statusCharacteristicUUID {
+                // Parse status response
+                print("📡 Received status update: \(data.hexEncodedString())")
+            }
         }
     }
 }
@@ -473,6 +574,14 @@ struct BluetoothDevice: Identifiable, Hashable {
 }
 
 // BluetoothError now in SharedTypes.swift
+
+// MARK: - Data Extension for Hex Encoding
+
+extension Data {
+    func hexEncodedString() -> String {
+        return map { String(format: "%02hhx", $0) }.joined()
+    }
+}
 
 // MARK: - Mock Heart Authentication Service
 

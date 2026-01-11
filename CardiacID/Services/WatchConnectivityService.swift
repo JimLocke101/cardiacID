@@ -108,6 +108,19 @@ class WatchConnectivityService: NSObject, ObservableObject {
     private let authStatusSubject = PassthroughSubject<String, Never>()
     private let errorSubject = PassthroughSubject<String, Never>()
 
+    // MARK: - Ping/Pong Connection Verification
+
+    /// Whether the Watch connection has been verified via ping/pong
+    @Published private(set) var connectionVerified: Bool = false
+    /// Round-trip latency from last successful ping
+    @Published private(set) var roundTripLatency: TimeInterval?
+    /// Last ping sent time for debouncing
+    private var lastPingSentTime: Date?
+    /// Minimum time between pings (6 seconds to prevent spam)
+    private let minimumPingInterval: TimeInterval = 6.0
+    /// Keep-alive ping timer
+    private var keepAliveTimer: Timer?
+
     var heartRatePublisher: AnyPublisher<(Int, Date), Never> {
         heartRateSubject.eraseToAnyPublisher()
     }
@@ -218,15 +231,86 @@ class WatchConnectivityService: NSObject, ObservableObject {
         stateRefreshTimer = nil
     }
 
-    /// Start connection keep-alive pings
-    func startConnectionKeepAlive(interval: TimeInterval = 15.0) {
-        // Placeholder for keep-alive implementation
+    /// Start connection keep-alive pings (default 10 seconds for responsive connection verification)
+    func startConnectionKeepAlive(interval: TimeInterval = 10.0) {
+        stopConnectionKeepAlive()
+
+        keepAliveTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.sendPing()
+            }
+        }
         print("📱 Connection keep-alive started with interval: \(interval)s")
     }
 
     /// Stop connection keep-alive
     func stopConnectionKeepAlive() {
+        keepAliveTimer?.invalidate()
+        keepAliveTimer = nil
         print("📱 Connection keep-alive stopped")
+    }
+
+    // MARK: - Ping/Pong Methods
+
+    /// Send a ping to the Watch to verify connection (with debouncing)
+    func sendPing(completion: ((Bool, TimeInterval?) -> Void)? = nil) {
+        // Debounce: prevent rapid-fire pings that can overwhelm the Watch
+        if let lastPing = lastPingSentTime,
+           Date().timeIntervalSince(lastPing) < minimumPingInterval {
+            print("📱 Ping debounced - too soon since last ping (\(String(format: "%.1f", Date().timeIntervalSince(lastPing)))s)")
+            completion?(connectionVerified, roundTripLatency)
+            return
+        }
+
+        guard session.isReachable else {
+            print("📱 Watch not reachable, skipping ping")
+            connectionVerified = false
+            completion?(false, nil)
+            return
+        }
+
+        let pingId = UUID().uuidString
+        let pingTimestamp = Date().timeIntervalSince1970
+        lastPingSentTime = Date()
+
+        let message: [String: Any] = [
+            "message_type": "ping",
+            "ping_id": pingId,
+            "timestamp": pingTimestamp
+        ]
+
+        session.sendMessage(message, replyHandler: { [weak self] response in
+            Task { @MainActor in
+                guard let self = self else { return }
+
+                // Verify this is the pong we're expecting
+                guard let responseType = response["message_type"] as? String,
+                      responseType == "pong",
+                      let responsePingId = response["ping_id"] as? String,
+                      responsePingId == pingId else {
+                    print("📱 Invalid pong response")
+                    completion?(false, nil)
+                    return
+                }
+
+                // Calculate round-trip latency
+                let pongTimestamp = Date().timeIntervalSince1970
+                let latency = pongTimestamp - pingTimestamp
+
+                self.connectionVerified = true
+                self.roundTripLatency = latency
+                print("📱 Ping successful - latency: \(String(format: "%.0f", latency * 1000))ms")
+
+                completion?(true, latency)
+            }
+        }, errorHandler: { [weak self] error in
+            Task { @MainActor in
+                self?.connectionVerified = false
+                self?.roundTripLatency = nil
+                print("📱 Ping failed: \(error.localizedDescription)")
+                completion?(false, nil)
+            }
+        })
     }
 
     // MARK: - Authentication Methods

@@ -265,6 +265,7 @@ enum BluetoothError: Error, LocalizedError {
     case commandFailed
     case timeout
     case invalidDevice
+    case encryptionFailed
 
     var errorDescription: String? {
         switch self {
@@ -275,6 +276,7 @@ enum BluetoothError: Error, LocalizedError {
         case .commandFailed: return "Command failed"
         case .timeout: return "Operation timed out"
         case .invalidDevice: return "Invalid device"
+        case .encryptionFailed: return "Failed to encrypt command"
         }
     }
 }

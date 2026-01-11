@@ -1,5 +1,4 @@
 import Foundation
-import Foundation
 import WatchConnectivity
 import Combine
 
@@ -15,10 +14,21 @@ class WatchConnectivityService: NSObject, ObservableObject {
 
     private var session: WCSession?
 
+    /// Thread-safe lock for cached biometric data
+    private let biometricDataLock = NSLock()
+    private var cachedBiometricData: [String: Any]?
+
+    /// Flag to track initialization state
+    private var isInitialized = false
+
     private override init() {
         super.init()
+        // CRITICAL: Keep init synchronous to prevent Watch app launch timeout
+        // setupWatchConnectivity is safe - just sets delegate and activates
         setupWatchConnectivity()
         setupNotificationObservers()
+        isInitialized = true
+        print("⌚️ WatchConnectivityService: Initialization complete")
     }
     
     private func setupWatchConnectivity() {
@@ -68,23 +78,42 @@ class WatchConnectivityService: NSObject, ObservableObject {
         }
     }
     
-    /// Send message to iOS companion app
+    /// Send message to iOS companion app (fire-and-forget to prevent blocking)
     func sendMessage(_ message: [String: Any], completion: @escaping (Bool) -> Void = { _ in }) {
         guard let session = session, session.isReachable else {
             connectionStatus = "iOS App Not Reachable"
             completion(false)
             return
         }
-        
+
+        // CRITICAL: Use nil replyHandler for fire-and-forget to prevent Watch hangs
+        // The Watch app was crashing/hanging when using replyHandler
+        session.sendMessage(message, replyHandler: nil) { error in
+            DispatchQueue.main.async {
+                self.connectionStatus = "Error: \(error.localizedDescription)"
+                completion(false)
+            }
+        }
+        completion(true)
+    }
+
+    /// Send message with reply handler (only use when you NEED the response)
+    /// WARNING: This can cause Watch hangs if iOS doesn't respond quickly
+    func sendMessageWithReply(_ message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void, errorHandler: @escaping (Error) -> Void) {
+        guard let session = session, session.isReachable else {
+            errorHandler(NSError(domain: "WatchConnectivity", code: -1, userInfo: [NSLocalizedDescriptionKey: "iOS App Not Reachable"]))
+            return
+        }
+
         session.sendMessage(message, replyHandler: { response in
             DispatchQueue.main.async {
                 self.lastMessage = response
-                completion(true)
+                replyHandler(response)
             }
         }, errorHandler: { error in
             DispatchQueue.main.async {
                 self.connectionStatus = "Error: \(error.localizedDescription)"
-                completion(false)
+                errorHandler(error)
             }
         })
     }
@@ -297,12 +326,18 @@ class WatchConnectivityService: NSObject, ObservableObject {
 // MARK: - WCSessionDelegate
 
 extension WatchConnectivityService: WCSessionDelegate {
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        DispatchQueue.main.async {
-            switch activationState {
+    /// CRITICAL: All WCSessionDelegate methods MUST be nonisolated to prevent threading issues
+    /// that were causing Watch app crashes/hangs
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        // Capture state synchronously before async dispatch
+        let isReachable = session.isReachable
+        let newState = activationState
+
+        Task { @MainActor in
+            switch newState {
             case .activated:
-                self.isConnected = session.isReachable
-                self.connectionStatus = session.isReachable ? "Connected to iOS" : "iOS App Not Reachable"
+                self.isConnected = isReachable
+                self.connectionStatus = isReachable ? "Connected to iOS" : "iOS App Not Reachable"
             case .inactive:
                 self.isConnected = false
                 self.connectionStatus = "Inactive"
@@ -315,51 +350,108 @@ extension WatchConnectivityService: WCSessionDelegate {
             }
         }
     }
-    
-    func sessionReachabilityDidChange(_ session: WCSession) {
-        DispatchQueue.main.async {
-            self.isConnected = session.isReachable
-            self.connectionStatus = session.isReachable ? "Connected to iOS" : "iOS App Not Reachable"
+
+    nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
+        // Capture state synchronously before async dispatch
+        let isReachable = session.isReachable
+
+        Task { @MainActor in
+            self.isConnected = isReachable
+            self.connectionStatus = isReachable ? "Connected to iOS" : "iOS App Not Reachable"
         }
     }
-    
-    func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
-        DispatchQueue.main.async {
-            self.lastMessage = message
-            self.handleReceivedMessage(message)
+
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        // Capture message copy for async dispatch
+        let messageCopy = message
+
+        Task { @MainActor in
+            self.lastMessage = messageCopy
+            self.handleReceivedMessage(messageCopy)
         }
     }
-    
-    func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
-        DispatchQueue.main.async {
-            self.lastMessage = message
-            self.handleReceivedMessage(message)
-            
-            // Send acknowledgment
-            replyHandler(["status": "received"])
+
+    /// CRITICAL: This delegate handles ping requests - must respond synchronously for pings
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
+        // Check for ping message - respond synchronously to prevent timeout
+        if let messageType = message["message_type"] as? String, messageType == "ping" {
+            // Respond to ping immediately without dispatching to main thread
+            let response: [String: Any] = [
+                "message_type": "pong",
+                "ping_id": message["ping_id"] as? String ?? "",
+                "original_timestamp": message["timestamp"] as? TimeInterval ?? 0,
+                "pong_timestamp": Date().timeIntervalSince1970,
+                "source": "watchOS"
+            ]
+            replyHandler(response)
+            return
+        }
+
+        // Check for biometric_data_request - use cached data for thread safety
+        if let messageType = message["message_type"] as? String, messageType == "biometric_data_request" {
+            // Use thread-safe cached biometric data
+            biometricDataLock.lock()
+            let cachedData = cachedBiometricData ?? [
+                "message_type": "biometric_data_response",
+                "confidence": 0.0,
+                "heart_rate": 0,
+                "method": "unknown",
+                "is_active_monitoring": false,
+                "user_name": "",
+                "authenticated": false,
+                "timestamp": Date().timeIntervalSince1970
+            ]
+            biometricDataLock.unlock()
+
+            replyHandler(cachedData)
+
+            // Also trigger async update for fresh data
+            let messageCopy = message
+            Task { @MainActor in
+                self.handleReceivedMessage(messageCopy, replyHandler: nil)
+            }
+            return
+        }
+
+        // Capture message copy for async dispatch
+        let messageCopy = message
+
+        // For other messages, dispatch to main actor and send acknowledgment
+        Task { @MainActor in
+            self.lastMessage = messageCopy
+            self.handleReceivedMessage(messageCopy, replyHandler: replyHandler)
         }
     }
+
+    /// Update cached biometric data (called from HeartIDService)
+    func updateCachedBiometricData(_ data: [String: Any]) {
+        biometricDataLock.lock()
+        cachedBiometricData = data
+        biometricDataLock.unlock()
+    }
     
-    private func handleReceivedMessage(_ message: [String: Any]) {
+    private func handleReceivedMessage(_ message: [String: Any], replyHandler: (([String: Any]) -> Void)? = nil) {
         print("⌚️ Watch received message: \(message)")
 
         // Check for iOS format first (message_type key)
         if let messageType = message["message_type"] as? String {
-            handleiOSMessage(messageType, data: message)
+            handleiOSMessage(messageType, data: message, replyHandler: replyHandler)
             return
         }
 
         // Fallback to legacy format (type key) for backward compatibility
         if let type = message["type"] as? String {
             handleLegacyMessage(type, data: message)
+            replyHandler?(["status": "received"])
             return
         }
 
         print("⚠️ Watch: Unknown message format received")
+        replyHandler?(["status": "unknown_format"])
     }
 
     /// Handle messages from iOS app using iOS format (message_type key)
-    private func handleiOSMessage(_ messageType: String, data: [String: Any]) {
+    private func handleiOSMessage(_ messageType: String, data: [String: Any], replyHandler: (([String: Any]) -> Void)? = nil) {
         print("📱 Watch: Processing iOS message type: \(messageType)")
 
         switch messageType {
@@ -418,13 +510,16 @@ extension WatchConnectivityService: WCSessionDelegate {
             // iOS is requesting current biometric data for Live Biometric Data display
             // Handle asynchronously to prevent blocking
             print("⌚️ Watch: iOS requested biometric data update")
-            DispatchQueue.main.async { [weak self] in
-                self?.sendBiometricDataResponse()
-            }
+            sendBiometricDataResponse()
+            replyHandler?(["status": "biometric_data_requested"])
+            return
 
         default:
             print("⚠️ Watch: Unknown iOS message type: \(messageType)")
         }
+
+        // Send acknowledgment for handled messages
+        replyHandler?(["status": "received"])
     }
 
     /// Handle legacy format messages (type key) for backward compatibility

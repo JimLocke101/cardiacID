@@ -56,9 +56,13 @@ class HeartIDService: ObservableObject {
     private let watchConnectivity = WatchConnectivityService.shared
 
     init() {
+        // CRITICAL: Keep init() lightweight to prevent Watch app launch timeout
+        // watchOS has strict launch time requirements - the app MUST be responsive within seconds
+        // Heavy init work (HealthKit, wrist detection, observers) must be deferred to initialize()
         loadConfiguration()
-        setupWristDetectionMonitoring()
-        setupBiometricDataRequestHandler()
+        // Note: setupWristDetectionMonitoring() and setupBiometricDataRequestHandler()
+        // are now called in initialize() to prevent early crashes
+        print("⌚️ HeartIDService: Lightweight init complete")
     }
 
     deinit {
@@ -111,6 +115,11 @@ class HeartIDService: ObservableObject {
         do {
             print("⌚️ Watch: Starting initialization...")
             let startTime = Date()
+
+            // Setup observers that were deferred from init()
+            // These are now safe to setup because the app is stable
+            setupWristDetectionMonitoring()
+            setupBiometricDataRequestHandler()
 
             try await healthKit.requestAuthorization()
 
@@ -665,37 +674,49 @@ class HeartIDService: ObservableObject {
         let userName = enrolledUserName ?? "Unknown"
         let authenticated = authenticationState != .unauthenticated
 
+        let confidence: Double
+        let heartRate: Int
+        let method: String
+        let isActive: Bool
+
         if isMonitoring {
             // Active PPG monitoring - send current PPG data
-            let confidence = currentPPGConfidence > 0 ? currentPPGConfidence : currentConfidence
-            let heartRate = Int(healthKit.currentHeartRate)
-
+            confidence = currentPPGConfidence > 0 ? currentPPGConfidence : currentConfidence
+            heartRate = Int(healthKit.currentHeartRate)
+            method = "ppg"
+            isActive = true
             print("📡 Sending PPG data to iOS (active): \(Int(confidence * 100))%, HR: \(heartRate)")
-
-            watchConnectivity.sendBiometricDataToiOS(
-                confidence: confidence,
-                heartRate: heartRate,
-                method: "ppg",
-                isActiveMonitoring: true,
-                userName: userName,
-                authenticated: authenticated
-            )
         } else {
             // Not actively monitoring - send last ECG reading
-            let confidence = lastECGConfidence > 0 ? lastECGConfidence : currentConfidence
-            let heartRate = Int(healthKit.currentHeartRate)
-
+            confidence = lastECGConfidence > 0 ? lastECGConfidence : currentConfidence
+            heartRate = Int(healthKit.currentHeartRate)
+            method = "ecg"
+            isActive = false
             print("📡 Sending ECG data to iOS (last reading): \(Int(confidence * 100))%, HR: \(heartRate)")
-
-            watchConnectivity.sendBiometricDataToiOS(
-                confidence: confidence,
-                heartRate: heartRate,
-                method: "ecg",
-                isActiveMonitoring: false,
-                userName: userName,
-                authenticated: authenticated
-            )
         }
+
+        // Update cached biometric data for synchronous ping responses
+        let cachedData: [String: Any] = [
+            "message_type": "biometric_data_response",
+            "confidence": confidence,
+            "heart_rate": heartRate,
+            "method": method,
+            "is_active_monitoring": isActive,
+            "user_name": userName,
+            "authenticated": authenticated,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        watchConnectivity.updateCachedBiometricData(cachedData)
+
+        // Send biometric data to iOS
+        watchConnectivity.sendBiometricDataToiOS(
+            confidence: confidence,
+            heartRate: heartRate,
+            method: method,
+            isActiveMonitoring: isActive,
+            userName: userName,
+            authenticated: authenticated
+        )
     }
 
     // MARK: - Cleanup
