@@ -269,20 +269,45 @@ class WatchConnectivityService: NSObject, ObservableObject {
 
     /// Send biometric data response to iOS for Live Biometric Data display
     /// Uses PPG data when actively monitoring, falls back to last ECG when not
+    /// CRITICAL FIX: Use cached data immediately to prevent blocking, then request fresh data
+    @MainActor
     private func sendBiometricDataResponse() {
-        // Request biometric data from HeartIDService via notification
+        // CRITICAL: Send cached data immediately to prevent blocking
+        // This ensures iOS gets a response even if HeartIDService is busy
+        biometricDataLock.lock()
+        let cachedData = cachedBiometricData ?? [
+            "message_type": "biometric_data_response",
+            "confidence": 0.0,
+            "heart_rate": 0,
+            "method": "unknown",
+            "is_active_monitoring": false,
+            "user_name": "",
+            "authenticated": false,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        biometricDataLock.unlock()
+        
+        // Send cached data immediately (non-blocking)
+        if let session = session, session.activationState == .activated {
+            if session.isReachable {
+                session.sendMessage(cachedData, replyHandler: nil) { error in
+                    print("⌚️ Watch: Cached biometric data send failed: \(error.localizedDescription)")
+                }
+            } else {
+                // Fallback to application context
+                do {
+                    try session.updateApplicationContext(cachedData)
+                } catch {
+                    print("⌚️ Watch: Failed to send cached biometric data via context: \(error.localizedDescription)")
+                }
+            }
+        }
+        
+        // Request fresh data asynchronously (non-blocking)
+        // This will update the cache and send a fresh response if needed
         NotificationCenter.default.post(
             name: .init("BiometricDataRequest"),
-            object: nil,
-            userInfo: ["replyHandler": { [weak self] (data: [String: Any]) in
-                self?.sendMessage(data) { success in
-                    if success {
-                        print("✅ Watch: Sent biometric data response to iOS")
-                    } else {
-                        print("❌ Watch: Failed to send biometric data response to iOS")
-                    }
-                }
-            }]
+            object: nil
         )
     }
 
@@ -460,6 +485,18 @@ extension WatchConnectivityService: WCSessionDelegate {
             self.handleReceivedMessage(messageCopy)
         }
     }
+    
+    /// CRITICAL: Handle application context updates from iOS
+    /// This method was missing and causing warnings/hangs
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        // Capture context copy for async dispatch
+        let contextCopy = applicationContext
+        
+        Task { @MainActor in
+            print("⌚️ Watch: Received application context from iOS")
+            self.handleReceivedMessage(contextCopy)
+        }
+    }
 
     /// CRITICAL: This delegate handles ping requests - must respond synchronously for pings
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String : Any], replyHandler: @escaping ([String : Any]) -> Void) {
@@ -525,6 +562,8 @@ extension WatchConnectivityService: WCSessionDelegate {
         biometricDataLock.unlock()
     }
     
+    /// Handle received message - must be called from MainActor context
+    @MainActor
     private func handleReceivedMessage(_ message: [String: Any], replyHandler: (([String: Any]) -> Void)? = nil) {
         print("⌚️ Watch received message: \(message)")
 
@@ -546,6 +585,8 @@ extension WatchConnectivityService: WCSessionDelegate {
     }
 
     /// Handle messages from iOS app using iOS format (message_type key)
+    /// CRITICAL: This method must be called from MainActor context
+    @MainActor
     private func handleiOSMessage(_ messageType: String, data: [String: Any], replyHandler: (([String: Any]) -> Void)? = nil) {
         print("📱 Watch: Processing iOS message type: \(messageType)")
 
@@ -603,9 +644,13 @@ extension WatchConnectivityService: WCSessionDelegate {
 
         case "biometric_data_request":
             // iOS is requesting current biometric data for Live Biometric Data display
-            // Handle asynchronously to prevent blocking
+            // CRITICAL: If this is called from handleReceivedMessage (no replyHandler),
+            // send the response immediately using cached data
+            // If called from didReceiveMessage with replyHandler, it's already handled above
             print("⌚️ Watch: iOS requested biometric data update")
+            // Send response immediately (non-blocking)
             sendBiometricDataResponse()
+            // Acknowledge if replyHandler exists (though it shouldn't for this path)
             replyHandler?(["status": "biometric_data_requested"])
             return
 
