@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuView: View {
     @ObservedObject var heartIDService: HeartIDService
+    @EnvironmentObject var watchConnectivity: WatchConnectivityService
     @State private var showingEnroll = false
     @State private var showingAuthenticate = false
     @State private var showingSystemStatus = false
@@ -67,6 +68,11 @@ struct MenuView: View {
                         }
                         .buttonStyle(.plain)
 
+                        // Passkey Sign In Button (HeartID first, then passkey fallback)
+                        PasskeySignInButton()
+                            .environmentObject(heartIDService)
+                            .buttonStyle(.plain)
+                        
                         // Settings Button
                         NavigationLink(destination: SettingsView(heartIDService: heartIDService)) {
                             MenuButton(

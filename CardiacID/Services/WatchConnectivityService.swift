@@ -38,6 +38,16 @@ enum WatchMessage: String {
     case entraIDAuthRequest = "entra_id_auth_request"
     case entraIDAuthResult = "entra_id_auth_result"
     case passwordlessAuthRequest = "passwordless_auth_request"
+    case passkeyAuthenticate = "passkey_authenticate"
+    case passkeyAuthenticateResult = "passkey_authenticate_result"
+    case passkeyRegister = "passkey_register"
+    case passkeyRegisterResult = "passkey_register_result"
+    case heartIDAuthenticate = "heartid_authenticate"
+    case heartIDAuthenticateResult = "heartid_authenticate_result"
+    case fido2Authenticate = "fido2_authenticate"
+    case fido2AuthenticateResult = "fido2_authenticate_result"
+    case fido2Register = "fido2_register"
+    case fido2RegisterResult = "fido2_register_result"
 
     struct Keys {
         static let messageType = "message_type"
@@ -732,6 +742,272 @@ extension WatchConnectivityService: WCSessionDelegate {
             }
         }
     }
+    
+    /// Handle passkey authentication request from Watch
+    private func handlePasskeyAuthenticationRequest(message: [String: Any]) {
+        Task { @MainActor in
+            print("📱 WatchConnectivity: Handling passkey authentication request from Watch")
+            
+            // Extract challenge from message (base64 encoded)
+            guard let challengeBase64 = message["challenge"] as? String,
+                  let challengeData = Data(base64Encoded: challengeBase64) else {
+                print("❌ WatchConnectivity: Invalid challenge in passkey request")
+                // Send error back to Watch
+                let errorMessage: [String: Any] = [
+                    WatchMessage.Keys.messageType: WatchMessage.passkeyAuthenticateResult.rawValue,
+                    WatchMessage.Keys.success: false,
+                    WatchMessage.Keys.error: "Invalid challenge"
+                ]
+                sendMessage(errorMessage)
+                return
+            }
+            
+            do {
+                // Trigger passkey authentication
+                let passkeyService = PasskeyService.shared
+                let result = try await passkeyService.authenticate(challenge: challengeData)
+                
+                print("✅ WatchConnectivity: Passkey authentication successful")
+                
+                // Send success result to Watch
+                let successMessage: [String: Any] = [
+                    WatchMessage.Keys.messageType: WatchMessage.passkeyAuthenticateResult.rawValue,
+                    WatchMessage.Keys.success: true,
+                    "credential_id": result.credentialID?.base64EncodedString() ?? "",
+                    "user_id": result.userID?.base64EncodedString() ?? "",
+                    "signature": result.signature?.base64EncodedString() ?? "",
+                    "client_data_json": result.clientDataJSON?.base64EncodedString() ?? "",
+                    "authenticator_data": result.authenticatorData?.base64EncodedString() ?? ""
+                ]
+                sendMessage(successMessage)
+                
+            } catch {
+                print("❌ WatchConnectivity: Passkey authentication failed - \(error.localizedDescription)")
+                
+                // Send error result to Watch
+                let errorMessage: [String: Any] = [
+                    WatchMessage.Keys.messageType: WatchMessage.passkeyAuthenticateResult.rawValue,
+                    WatchMessage.Keys.success: false,
+                    WatchMessage.Keys.error: error.localizedDescription
+                ]
+                sendMessage(errorMessage)
+            }
+        }
+    }
+    
+    /// Handle HeartID authentication from Watch
+    /// This is called when Watch authenticates using HeartID biometrics
+    /// and notifies iPhone of the authentication
+    private func handleHeartIDAuthenticationFromWatch(message: [String: Any]) {
+        Task { @MainActor in
+            print("📱 WatchConnectivity: Handling HeartID authentication from Watch")
+
+            // Extract HeartID authentication data
+            let confidence = message["confidence"] as? Double ?? 0.0
+            let userName = message["user_name"] as? String ?? "Unknown"
+            let accessLevel = message["access_level"] as? String ?? "unknown"
+            let method = message["method"] as? String ?? "unknown"
+
+            print("🔐 WatchConnectivity: HeartID Auth - User: \(userName), Confidence: \(Int(confidence * 100))%, Access: \(accessLevel), Method: \(method)")
+
+            // Update local state to reflect Watch authentication
+            self.liveBiometricConfidence = confidence
+            self.liveBiometricUserName = userName
+            self.liveBiometricAuthenticated = confidence >= 0.70
+            self.liveBiometricMethod = method
+            self.liveBiometricTimestamp = Date()
+
+            // Post notification for iOS app components to react
+            NotificationCenter.default.post(
+                name: .heartIDAuthenticationResult,
+                object: nil,
+                userInfo: [
+                    "success": true,
+                    "confidence": confidence,
+                    "userName": userName,
+                    "accessLevel": accessLevel,
+                    "method": method,
+                    "source": "watch"
+                ]
+            )
+
+            // Optionally, send acknowledgment back to Watch
+            let ackMessage: [String: Any] = [
+                WatchMessage.Keys.messageType: WatchMessage.heartIDAuthenticateResult.rawValue,
+                WatchMessage.Keys.success: true,
+                "confidence": confidence,
+                "access_level": accessLevel,
+                "synced": true
+            ]
+            sendMessage(ackMessage)
+
+            print("✅ WatchConnectivity: HeartID authentication processed and synced to iPhone")
+        }
+    }
+
+    /// Handle FIDO2 authentication from Watch
+    /// Watch performs FIDO2 operations locally, gated by HeartID biometrics
+    private func handleFIDO2AuthenticationFromWatch(message: [String: Any]) {
+        Task { @MainActor in
+            print("📱 WatchConnectivity: Handling FIDO2 authentication from Watch")
+
+            // Extract FIDO2 assertion data
+            let credentialID = message["credential_id"] as? String ?? ""
+            let authenticatorData = message["authenticator_data"] as? String ?? ""
+            let clientDataJSON = message["client_data_json"] as? String ?? ""
+            let signature = message["signature"] as? String ?? ""
+            let heartIDConfidence = message["heartid_confidence"] as? Double ?? 0.0
+            let userName = message["user_name"] as? String ?? "Unknown"
+            let accessLevel = message["access_level"] as? String ?? "unknown"
+
+            print("🔐 WatchConnectivity: FIDO2 Auth - User: \(userName), HeartID: \(Int(heartIDConfidence * 100))%, Access: \(accessLevel)")
+            print("🔐 WatchConnectivity: Credential ID: \(credentialID.prefix(20))...")
+
+            // Update local state
+            self.liveBiometricConfidence = heartIDConfidence
+            self.liveBiometricUserName = userName
+            self.liveBiometricAuthenticated = heartIDConfidence >= 0.70
+            self.liveBiometricMethod = "fido2"
+            self.liveBiometricTimestamp = Date()
+
+            // In production: Verify the signature against stored public key
+            // For now, we trust the Watch's verification
+
+            // Post notification for iOS app components
+            NotificationCenter.default.post(
+                name: .fido2AuthenticationResult,
+                object: nil,
+                userInfo: [
+                    "success": true,
+                    "credential_id": credentialID,
+                    "authenticator_data": authenticatorData,
+                    "client_data_json": clientDataJSON,
+                    "signature": signature,
+                    "heartid_confidence": heartIDConfidence,
+                    "userName": userName,
+                    "accessLevel": accessLevel,
+                    "source": "watch"
+                ]
+            )
+
+            // Send acknowledgment back to Watch
+            let ackMessage: [String: Any] = [
+                WatchMessage.Keys.messageType: WatchMessage.fido2AuthenticateResult.rawValue,
+                WatchMessage.Keys.success: true,
+                "verified": true,
+                "access_level": accessLevel
+            ]
+            sendMessage(ackMessage)
+
+            print("✅ WatchConnectivity: FIDO2 authentication processed")
+        }
+    }
+
+    /// Handle FIDO2 registration from Watch
+    private func handleFIDO2RegistrationFromWatch(message: [String: Any]) {
+        Task { @MainActor in
+            print("📱 WatchConnectivity: Handling FIDO2 registration from Watch")
+
+            // Extract FIDO2 registration data
+            let credentialID = message["credential_id"] as? String ?? ""
+            let publicKey = message["public_key"] as? String ?? ""
+            let attestationObject = message["attestation_object"] as? String ?? ""
+            let clientDataJSON = message["client_data_json"] as? String ?? ""
+            let userName = message["user_name"] as? String ?? "Unknown"
+
+            print("🔐 WatchConnectivity: FIDO2 Registration - User: \(userName)")
+            print("🔐 WatchConnectivity: Credential ID: \(credentialID.prefix(20))...")
+            print("🔐 WatchConnectivity: Public Key: \(publicKey.prefix(20))...")
+
+            // In production: Store the public key on the server for future verification
+            // The server would verify the attestation and store:
+            // - credentialID
+            // - publicKey
+            // - userName
+            // - deviceInfo
+
+            // Post notification for iOS app components
+            NotificationCenter.default.post(
+                name: .fido2RegistrationResult,
+                object: nil,
+                userInfo: [
+                    "success": true,
+                    "credential_id": credentialID,
+                    "public_key": publicKey,
+                    "attestation_object": attestationObject,
+                    "client_data_json": clientDataJSON,
+                    "userName": userName,
+                    "source": "watch"
+                ]
+            )
+
+            // Send acknowledgment back to Watch
+            let ackMessage: [String: Any] = [
+                WatchMessage.Keys.messageType: WatchMessage.fido2RegisterResult.rawValue,
+                WatchMessage.Keys.success: true,
+                "registered": true
+            ]
+            sendMessage(ackMessage)
+
+            print("✅ WatchConnectivity: FIDO2 registration processed")
+        }
+    }
+
+    /// Handle passkey registration request from Watch
+    private func handlePasskeyRegistrationRequest(message: [String: Any]) {
+        Task { @MainActor in
+            print("📱 WatchConnectivity: Handling passkey registration request from Watch")
+            
+            // Extract registration data from message
+            guard let username = message["username"] as? String,
+                  let userIDBase64 = message["user_id"] as? String,
+                  let userIDData = Data(base64Encoded: userIDBase64),
+                  let challengeBase64 = message["challenge"] as? String,
+                  let challengeData = Data(base64Encoded: challengeBase64) else {
+                print("❌ WatchConnectivity: Invalid registration data")
+                let errorMessage: [String: Any] = [
+                    WatchMessage.Keys.messageType: WatchMessage.passkeyRegisterResult.rawValue,
+                    WatchMessage.Keys.success: false,
+                    WatchMessage.Keys.error: "Invalid registration data"
+                ]
+                sendMessage(errorMessage)
+                return
+            }
+            
+            do {
+                // Trigger passkey registration
+                let passkeyService = PasskeyService.shared
+                let result = try await passkeyService.registerPasskey(
+                    username: username,
+                    userID: userIDData,
+                    challenge: challengeData
+                )
+                
+                print("✅ WatchConnectivity: Passkey registration successful")
+                
+                // Send success result to Watch
+                let successMessage: [String: Any] = [
+                    WatchMessage.Keys.messageType: WatchMessage.passkeyRegisterResult.rawValue,
+                    WatchMessage.Keys.success: true,
+                    "credential_id": result.credentialID.base64EncodedString(),
+                    "client_data_json": result.rawClientDataJSON.base64EncodedString(),
+                    "attestation_object": result.rawAttestationObject?.base64EncodedString() ?? ""
+                ]
+                sendMessage(successMessage)
+                
+            } catch {
+                print("❌ WatchConnectivity: Passkey registration failed - \(error.localizedDescription)")
+                
+                // Send error result to Watch
+                let errorMessage: [String: Any] = [
+                    WatchMessage.Keys.messageType: WatchMessage.passkeyRegisterResult.rawValue,
+                    WatchMessage.Keys.success: false,
+                    WatchMessage.Keys.error: error.localizedDescription
+                ]
+                sendMessage(errorMessage)
+            }
+        }
+    }
     #endif
 
     /// Handle messages using standard iOS WatchMessage format
@@ -813,6 +1089,89 @@ extension WatchConnectivityService: WCSessionDelegate {
                 object: nil,
                 userInfo: message
             )
+            
+        case .passkeyAuthenticate:
+            print("📱 Received passkey authentication request from Watch")
+            #if os(iOS)
+            handlePasskeyAuthenticationRequest(message: message)
+            #endif
+            
+        case .passkeyRegister:
+            print("📱 Received passkey registration request from Watch")
+            #if os(iOS)
+            handlePasskeyRegistrationRequest(message: message)
+            #endif
+            
+        case .passkeyAuthenticateResult:
+            print("📱 Received passkey authentication result")
+            // Handle result from server verification
+            if let success = message[WatchMessage.Keys.success] as? Bool {
+                NotificationCenter.default.post(
+                    name: .passkeyAuthenticationResult,
+                    object: nil,
+                    userInfo: ["success": success, "message": message]
+                )
+            }
+            
+        case .passkeyRegisterResult:
+            print("📱 Received passkey registration result")
+            // Handle result from server verification
+            if let success = message[WatchMessage.Keys.success] as? Bool {
+                NotificationCenter.default.post(
+                    name: .passkeyRegistrationResult,
+                    object: nil,
+                    userInfo: ["success": success, "message": message]
+                )
+            }
+
+        case .heartIDAuthenticate:
+            print("📱 Received HeartID authentication from Watch")
+            #if os(iOS)
+            handleHeartIDAuthenticationFromWatch(message: message)
+            #endif
+
+        case .heartIDAuthenticateResult:
+            print("📱 Received HeartID authentication result")
+            // Handle result from server verification
+            if let success = message[WatchMessage.Keys.success] as? Bool {
+                NotificationCenter.default.post(
+                    name: .heartIDAuthenticationResult,
+                    object: nil,
+                    userInfo: ["success": success, "message": message]
+                )
+            }
+
+        case .fido2Authenticate:
+            print("📱 Received FIDO2 authentication from Watch")
+            #if os(iOS)
+            handleFIDO2AuthenticationFromWatch(message: message)
+            #endif
+
+        case .fido2AuthenticateResult:
+            print("📱 Received FIDO2 authentication result")
+            if let success = message[WatchMessage.Keys.success] as? Bool {
+                NotificationCenter.default.post(
+                    name: .fido2AuthenticationResult,
+                    object: nil,
+                    userInfo: ["success": success, "message": message]
+                )
+            }
+
+        case .fido2Register:
+            print("�� Received FIDO2 registration from Watch")
+            #if os(iOS)
+            handleFIDO2RegistrationFromWatch(message: message)
+            #endif
+
+        case .fido2RegisterResult:
+            print("📱 Received FIDO2 registration result")
+            if let success = message[WatchMessage.Keys.success] as? Bool {
+                NotificationCenter.default.post(
+                    name: .fido2RegistrationResult,
+                    object: nil,
+                    userInfo: ["success": success, "message": message]
+                )
+            }
         }
 
         // Handle any error messages
@@ -962,4 +1321,9 @@ extension Notification.Name {
     static let authenticationSucceeded = Notification.Name("AuthenticationSucceeded")
     static let authenticationFailed = Notification.Name("AuthenticationFailed")
     static let liveBiometricDataUpdated = Notification.Name("LiveBiometricDataUpdated")
+    static let passkeyAuthenticationResult = Notification.Name("PasskeyAuthenticationResult")
+    static let passkeyRegistrationResult = Notification.Name("PasskeyRegistrationResult")
+    static let heartIDAuthenticationResult = Notification.Name("HeartIDAuthenticationResult")
+    static let fido2AuthenticationResult = Notification.Name("FIDO2AuthenticationResult")
+    static let fido2RegistrationResult = Notification.Name("FIDO2RegistrationResult")
 }

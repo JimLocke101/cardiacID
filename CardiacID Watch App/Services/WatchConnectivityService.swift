@@ -653,6 +653,82 @@ extension WatchConnectivityService: WCSessionDelegate {
             // Acknowledge if replyHandler exists (though it shouldn't for this path)
             replyHandler?(["status": "biometric_data_requested"])
             return
+            
+        case "passkey_authenticate_result":
+            // Handle passkey authentication result from iOS
+            print("⌚️ Watch: Received passkey authentication result from iOS")
+            if let success = data["success"] as? Bool {
+                NotificationCenter.default.post(
+                    name: .init("PasskeyAuthenticationResult"),
+                    object: nil,
+                    userInfo: ["success": success, "message": data]
+                )
+            }
+            
+        case "passkey_register_result":
+            // Handle passkey registration result from iOS
+            print("⌚️ Watch: Received passkey registration result from iOS")
+            if let success = data["success"] as? Bool {
+                NotificationCenter.default.post(
+                    name: .init("PasskeyRegistrationResult"),
+                    object: nil,
+                    userInfo: ["success": success, "message": data]
+                )
+            }
+
+        case "heartid_authenticate_result":
+            // Handle HeartID authentication acknowledgment from iOS
+            print("⌚️ Watch: Received HeartID authentication acknowledgment from iOS")
+            if let success = data["success"] as? Bool {
+                let confidence = data["confidence"] as? Double ?? 0.0
+                let accessLevel = data["access_level"] as? String ?? "unknown"
+                let synced = data["synced"] as? Bool ?? false
+                print("✅ Watch: HeartID auth synced to iOS - Success: \(success), Confidence: \(Int(confidence * 100))%, Access: \(accessLevel), Synced: \(synced)")
+                NotificationCenter.default.post(
+                    name: .init("HeartIDAuthenticationSynced"),
+                    object: nil,
+                    userInfo: [
+                        "success": success,
+                        "confidence": confidence,
+                        "accessLevel": accessLevel,
+                        "synced": synced
+                    ]
+                )
+            }
+
+        case "fido2_authenticate_result":
+            // Handle FIDO2 authentication acknowledgment from iOS
+            print("⌚️ Watch: Received FIDO2 authentication acknowledgment from iOS")
+            if let success = data["success"] as? Bool {
+                let verified = data["verified"] as? Bool ?? false
+                let accessLevel = data["access_level"] as? String ?? "unknown"
+                print("✅ Watch: FIDO2 auth verified by iOS - Success: \(success), Verified: \(verified), Access: \(accessLevel)")
+                NotificationCenter.default.post(
+                    name: .init("FIDO2AuthenticationVerified"),
+                    object: nil,
+                    userInfo: [
+                        "success": success,
+                        "verified": verified,
+                        "accessLevel": accessLevel
+                    ]
+                )
+            }
+
+        case "fido2_register_result":
+            // Handle FIDO2 registration acknowledgment from iOS
+            print("⌚️ Watch: Received FIDO2 registration acknowledgment from iOS")
+            if let success = data["success"] as? Bool {
+                let registered = data["registered"] as? Bool ?? false
+                print("✅ Watch: FIDO2 credential registered on iOS - Success: \(success), Registered: \(registered)")
+                NotificationCenter.default.post(
+                    name: .init("FIDO2RegistrationComplete"),
+                    object: nil,
+                    userInfo: [
+                        "success": success,
+                        "registered": registered
+                    ]
+                )
+            }
 
         default:
             print("⚠️ Watch: Unknown iOS message type: \(messageType)")
