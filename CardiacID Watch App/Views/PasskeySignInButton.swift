@@ -16,7 +16,6 @@ import WatchConnectivity
 struct PasskeySignInButton: View {
     @EnvironmentObject var watchConnectivity: WatchConnectivityService
     @EnvironmentObject var heartIDService: HeartIDService
-    @StateObject private var fido2Service = WatchFIDO2Service.shared
 
     @State private var isAuthenticating = false
     @State private var authenticationStatus: String?
@@ -26,6 +25,7 @@ struct PasskeySignInButton: View {
     @State private var successMessage: String?
     @State private var authenticationMethod: String = ""
     @State private var showRegistrationPrompt = false
+    @State private var isFIDO2Registered = false
 
     /// Minimum confidence threshold for FIDO2 operations
     private let minimumConfidenceThreshold: Double = 0.70  // 70% minimum
@@ -45,6 +45,10 @@ struct PasskeySignInButton: View {
             )
         }
         .disabled(isAuthenticating)
+        .onAppear {
+            // Check FIDO2 registration status on appear
+            isFIDO2Registered = WatchFIDO2Service.shared.isRegistered
+        }
         .alert("Authentication Error", isPresented: $showError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -57,7 +61,7 @@ struct PasskeySignInButton: View {
         }
         .alert("Register Device?", isPresented: $showRegistrationPrompt) {
             Button("Register", role: .none) {
-                Task {
+                Task { @MainActor in
                     await registerFIDO2Credential()
                 }
             }
@@ -73,7 +77,7 @@ struct PasskeySignInButton: View {
     // MARK: - UI Properties
 
     private var buttonIcon: String {
-        if fido2Service.isRegistered {
+        if isFIDO2Registered {
             return "key.fill"
         } else {
             return "key"
@@ -97,14 +101,14 @@ struct PasskeySignInButton: View {
                 confidenceText = "Ready"
             }
 
-            if fido2Service.isRegistered {
+            if isFIDO2Registered {
                 return "FIDO2 + HeartID: \(confidenceText)"
             } else {
                 return "HeartID: \(confidenceText) (Tap to register)"
             }
         }
 
-        if fido2Service.isRegistered {
+        if isFIDO2Registered {
             return "FIDO2 Ready"
         }
 
@@ -120,7 +124,7 @@ struct PasskeySignInButton: View {
         if heartIDService.enrollmentState == .enrolled {
             switch heartIDService.authenticationState {
             case .authenticated:
-                return fido2Service.isRegistered ? .green : .blue
+                return isFIDO2Registered ? .green : .blue
             case .conditional:
                 return .yellow
             case .unauthenticated:
@@ -128,7 +132,7 @@ struct PasskeySignInButton: View {
             }
         }
 
-        return fido2Service.isRegistered ? .blue : .gray
+        return isFIDO2Registered ? .blue : .gray
     }
 
     // MARK: - FIDO2 Authentication Flow
@@ -157,14 +161,14 @@ struct PasskeySignInButton: View {
         }
 
         // Check 3: FIDO2 credential must exist (or prompt registration)
-        if !fido2Service.isRegistered {
+        if !isFIDO2Registered {
             isAuthenticating = false
             showRegistrationPrompt = true
             return
         }
 
         // Proceed with FIDO2 authentication
-        Task {
+        Task { @MainActor in
             await performFIDO2Authentication()
         }
     }
@@ -182,6 +186,8 @@ struct PasskeySignInButton: View {
     }
 
     /// Perform FIDO2 authentication using HeartID-gated signature
+    /// NOTE: This runs on MainActor since WatchFIDO2Service is @MainActor
+    @MainActor
     private func performFIDO2Authentication() async {
         authenticationMethod = "FIDO2 + HeartID..."
 
@@ -195,7 +201,7 @@ struct PasskeySignInButton: View {
 
         do {
             // Perform FIDO2 authentication (gated by HeartID confidence)
-            let response = try await fido2Service.authenticate(
+            let response = try await WatchFIDO2Service.shared.authenticate(
                 challenge: challenge,
                 heartIDConfidence: confidence
             )
@@ -226,18 +232,16 @@ struct PasskeySignInButton: View {
                 }
             }
 
-            // Complete authentication locally
-            await MainActor.run {
-                isAuthenticating = false
-                authenticationMethod = ""
+            // Already on MainActor - update UI directly
+            isAuthenticating = false
+            authenticationMethod = ""
 
-                if confidence >= fullAccessThreshold {
-                    successMessage = "FIDO2 Authenticated\n\(userName)\nHeartID: \(Int(confidence * 100))%\nFull Access Granted"
-                } else {
-                    successMessage = "FIDO2 Authenticated\n\(userName)\nHeartID: \(Int(confidence * 100))%\nConditional Access"
-                }
-                showSuccess = true
+            if confidence >= fullAccessThreshold {
+                successMessage = "FIDO2 Authenticated\n\(userName)\nHeartID: \(Int(confidence * 100))%\nFull Access Granted"
+            } else {
+                successMessage = "FIDO2 Authenticated\n\(userName)\nHeartID: \(Int(confidence * 100))%\nConditional Access"
             }
+            showSuccess = true
 
             print("✅ Watch: FIDO2 authentication complete - \(accessLevel) access")
 
@@ -258,18 +262,19 @@ struct PasskeySignInButton: View {
         } catch {
             print("❌ Watch: FIDO2 authentication failed - \(error.localizedDescription)")
 
-            await MainActor.run {
-                isAuthenticating = false
-                authenticationMethod = ""
-                errorMessage = error.localizedDescription
-                showError = true
-            }
+            // Already on MainActor - update UI directly
+            isAuthenticating = false
+            authenticationMethod = ""
+            errorMessage = error.localizedDescription
+            showError = true
         }
     }
 
     // MARK: - FIDO2 Registration
 
     /// Register a new FIDO2 credential on the Watch
+    /// NOTE: This runs on MainActor since WatchFIDO2Service is @MainActor
+    @MainActor
     private func registerFIDO2Credential() async {
         isAuthenticating = true
         authenticationMethod = "Registering FIDO2..."
@@ -284,7 +289,7 @@ struct PasskeySignInButton: View {
         let userID = Data(userName.utf8)
 
         do {
-            let response = try await fido2Service.register(
+            let response = try await WatchFIDO2Service.shared.register(
                 challenge: challenge,
                 userID: userID,
                 userName: userName,
@@ -307,22 +312,21 @@ struct PasskeySignInButton: View {
                 }
             }
 
-            await MainActor.run {
-                isAuthenticating = false
-                authenticationMethod = ""
-                successMessage = "FIDO2 Credential Registered\n\nThis Watch is now set up for passwordless authentication."
-                showSuccess = true
-            }
+            // Already on MainActor - update UI directly
+            isFIDO2Registered = true  // Update local state
+            isAuthenticating = false
+            authenticationMethod = ""
+            successMessage = "FIDO2 Credential Registered\n\nThis Watch is now set up for passwordless authentication."
+            showSuccess = true
 
         } catch {
             print("❌ Watch: FIDO2 registration failed - \(error.localizedDescription)")
 
-            await MainActor.run {
-                isAuthenticating = false
-                authenticationMethod = ""
-                errorMessage = error.localizedDescription
-                showError = true
-            }
+            // Already on MainActor - update UI directly
+            isAuthenticating = false
+            authenticationMethod = ""
+            errorMessage = error.localizedDescription
+            showError = true
         }
     }
 
