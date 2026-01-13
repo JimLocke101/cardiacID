@@ -568,24 +568,48 @@ class WatchConnectivityService: NSObject, ObservableObject {
     // MARK: - Generic Message Sending
 
     private func sendMessage(_ message: [String: Any]) {
+        sendMessage(message, silent: false)
+    }
+
+    /// Send message with option to suppress errors (for acknowledgments that aren't critical)
+    private func sendMessage(_ message: [String: Any], silent: Bool) {
         guard session.activationState == .activated else {
-            errorSubject.send("Watch session not activated")
+            if !silent {
+                errorSubject.send("Watch session not activated")
+            }
+            print("⚠️ WatchConnectivity: Session not activated, cannot send message")
             return
         }
 
         if session.isReachable {
             session.sendMessage(message, replyHandler: nil) { error in
-                Task { @MainActor in
-                    self.errorSubject.send("Message send failed: \(error.localizedDescription)")
+                // Only report errors for non-silent messages
+                if !silent {
+                    Task { @MainActor in
+                        self.errorSubject.send("Message send failed: \(error.localizedDescription)")
+                    }
                 }
+                print("⚠️ WatchConnectivity: Message send failed (silent=\(silent)): \(error.localizedDescription)")
             }
         } else {
-            // Fallback to application context
-            do {
-                try session.updateApplicationContext(message)
-                print("Message sent via application context")
-            } catch {
-                errorSubject.send("Failed to send message: \(error.localizedDescription)")
+            // For result/acknowledgment messages, try transferUserInfo instead of applicationContext
+            // This queues the message for delivery when Watch becomes reachable
+            let messageType = message["message_type"] as? String ?? "unknown"
+            if messageType.contains("result") || messageType.contains("Result") {
+                // Queue for later delivery
+                session.transferUserInfo(message)
+                print("📤 WatchConnectivity: Watch not reachable, queued message via transferUserInfo: \(messageType)")
+            } else {
+                // Fallback to application context for other messages
+                do {
+                    try session.updateApplicationContext(message)
+                    print("📤 WatchConnectivity: Message sent via application context: \(messageType)")
+                } catch {
+                    if !silent {
+                        errorSubject.send("Failed to send message: \(error.localizedDescription)")
+                    }
+                    print("⚠️ WatchConnectivity: Failed to update application context: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -831,7 +855,7 @@ extension WatchConnectivityService: WCSessionDelegate {
                 ]
             )
 
-            // Optionally, send acknowledgment back to Watch
+            // Optionally, send acknowledgment back to Watch (silent - don't show error if Watch is asleep)
             let ackMessage: [String: Any] = [
                 WatchMessage.Keys.messageType: WatchMessage.heartIDAuthenticateResult.rawValue,
                 WatchMessage.Keys.success: true,
@@ -839,7 +863,7 @@ extension WatchConnectivityService: WCSessionDelegate {
                 "access_level": accessLevel,
                 "synced": true
             ]
-            sendMessage(ackMessage)
+            sendMessage(ackMessage, silent: true)
 
             print("✅ WatchConnectivity: HeartID authentication processed and synced to iPhone")
         }
@@ -890,14 +914,14 @@ extension WatchConnectivityService: WCSessionDelegate {
                 ]
             )
 
-            // Send acknowledgment back to Watch
+            // Send acknowledgment back to Watch (silent - don't show error if Watch is asleep)
             let ackMessage: [String: Any] = [
                 WatchMessage.Keys.messageType: WatchMessage.fido2AuthenticateResult.rawValue,
                 WatchMessage.Keys.success: true,
                 "verified": true,
                 "access_level": accessLevel
             ]
-            sendMessage(ackMessage)
+            sendMessage(ackMessage, silent: true)
 
             print("✅ WatchConnectivity: FIDO2 authentication processed")
         }
@@ -941,13 +965,13 @@ extension WatchConnectivityService: WCSessionDelegate {
                 ]
             )
 
-            // Send acknowledgment back to Watch
+            // Send acknowledgment back to Watch (silent - don't show error if Watch is asleep)
             let ackMessage: [String: Any] = [
                 WatchMessage.Keys.messageType: WatchMessage.fido2RegisterResult.rawValue,
                 WatchMessage.Keys.success: true,
                 "registered": true
             ]
-            sendMessage(ackMessage)
+            sendMessage(ackMessage, silent: true)
 
             print("✅ WatchConnectivity: FIDO2 registration processed")
         }
