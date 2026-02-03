@@ -760,6 +760,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ARGOS.CardiacID;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -796,6 +797,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ARGOS.CardiacID;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
