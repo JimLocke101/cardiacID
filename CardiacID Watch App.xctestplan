@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "F4211B98-0F4C-4CAD-8C8E-1759E765758D",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:CardiacID.xcodeproj",
+      "identifier" : "FBF0C0BB2E70DF25005C425B",
+      "name" : "CardiacID Watch App"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:CardiacID.xcodeproj",
+        "identifier" : "FBF0C0CA2E70DF27005C425B",
+        "name" : "CardiacID Watch AppTests"
+      }
+    },
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:CardiacID.xcodeproj",
+        "identifier" : "FBF0C0D42E70DF27005C425B",
+        "name" : "CardiacID Watch AppUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
