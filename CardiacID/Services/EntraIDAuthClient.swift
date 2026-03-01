@@ -398,6 +398,17 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
                 userInfo: ["user": user]
             )
 
+            // Proactively push token to Watch for reliable offline access
+            #if os(iOS)
+            WatchConnectivityService.shared.pushTokenToWatch(
+                accessToken: result.accessToken,
+                refreshToken: nil,
+                expiresAt: result.expiresOn ?? Date().addingTimeInterval(3600),
+                userId: user.id,
+                displayName: user.displayName
+            )
+            #endif
+
             print("✅ EntraID sign in successful: \(user.email)")
             return user
 
@@ -515,6 +526,17 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
                 self.currentUser = user
                 self.isAuthenticated = true
             }
+
+            // Push refreshed token to Watch
+            #if os(iOS)
+            WatchConnectivityService.shared.pushTokenToWatch(
+                accessToken: result.accessToken,
+                refreshToken: nil,
+                expiresAt: result.expiresOn ?? Date().addingTimeInterval(3600),
+                userId: user.id,
+                displayName: user.displayName
+            )
+            #endif
 
             print("✅ EntraID silent sign in successful")
             return user

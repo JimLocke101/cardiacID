@@ -486,6 +486,16 @@ extension WatchConnectivityService: WCSessionDelegate {
         }
     }
     
+    /// Handle queued transferUserInfo from iOS (token relay, enrollment sync)
+    /// transferUserInfo payloads are queued and delivered even when Watch was backgrounded
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        let userInfoCopy = userInfo
+        Task { @MainActor in
+            print("Watch: Received transferUserInfo from iOS")
+            self.handleReceivedMessage(userInfoCopy)
+        }
+    }
+
     /// CRITICAL: Handle application context updates from iOS
     /// This method was missing and causing warnings/hangs
     nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
@@ -640,6 +650,61 @@ extension WatchConnectivityService: WCSessionDelegate {
                     object: nil,
                     userInfo: ["method": method]
                 )
+            }
+
+        case "token_relay":
+            // Receive EntraID token from iOS via transferUserInfo (reliable delivery)
+            print("Watch: Received token relay from iOS")
+            if let accessToken = data["access_token"] as? String,
+               let expiresAtTimestamp = data["expires_at"] as? TimeInterval {
+                let expiresAt = Date(timeIntervalSince1970: expiresAtTimestamp)
+                let refreshToken = data["refresh_token"] as? String ?? ""
+                let userId = data["user_id"] as? String ?? ""
+                let displayName = data["display_name"] as? String ?? ""
+
+                do {
+                    try SecureCredentialManager.shared.store(accessToken, forKey: .entraIDAccessToken)
+                    if !refreshToken.isEmpty {
+                        try SecureCredentialManager.shared.store(refreshToken, forKey: .entraIDRefreshToken)
+                    }
+                    print("Watch: Token stored securely - expires: \(expiresAt), user: \(displayName)")
+
+                    NotificationCenter.default.post(
+                        name: .init("EntraIDTokenReceived"),
+                        object: nil,
+                        userInfo: [
+                            "userId": userId,
+                            "displayName": displayName,
+                            "expiresAt": expiresAt
+                        ]
+                    )
+                } catch {
+                    print("Watch: Failed to store token: \(error)")
+                }
+            }
+
+        case "enrollment_sync":
+            // Receive enrollment validation from iOS
+            print("Watch: Received enrollment sync validation from iOS")
+            if let validated = data["validated"] as? Bool, validated,
+               let userId = data["user_id"] as? String {
+                let enrollmentStatus = data["enrollment_status"] as? String ?? "completed"
+                let templateHash = data["template_hash"] as? String ?? ""
+
+                // Store the confirmed user ID for future reference
+                UserDefaults.standard.set(userId, forKey: "confirmed_user_id")
+                UserDefaults.standard.set(true, forKey: "enrollment_synced_with_ios")
+
+                NotificationCenter.default.post(
+                    name: .init("EnrollmentSyncValidated"),
+                    object: nil,
+                    userInfo: [
+                        "userId": userId,
+                        "enrollmentStatus": enrollmentStatus,
+                        "templateHash": templateHash
+                    ]
+                )
+                print("Watch: Enrollment synced with iOS - userId: \(userId), status: \(enrollmentStatus)")
             }
 
         case "biometric_data_request":

@@ -96,6 +96,55 @@ final class AppSupabaseClient: ObservableObject {
         // TODO: Implement real Supabase query
         return []
     }
+
+    // MARK: - Auth Event Logging
+
+    /// Log an authentication event to the Supabase auth_events table
+    /// Used by BiometricFallbackChainService, AccessControlService, and other auth flows
+    func logAuthEvent(
+        eventType: String,
+        method: String,
+        success: Bool,
+        confidence: Double?,
+        failureReason: String?,
+        metadata: [String: Any]?
+    ) async throws {
+        // Build the event payload matching the auth_events schema
+        var body: [String: Any] = [
+            "event_type": eventType,
+            "authentication_method": method,
+            "success": success,
+            "created_at": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        if let userId = currentUser?.id {
+            body["user_id"] = userId
+        }
+        if let confidence = confidence {
+            body["confidence_score"] = confidence
+        }
+        if let reason = failureReason {
+            body["failure_reason"] = reason
+        }
+        if let meta = metadata,
+           let metaData = try? JSONSerialization.data(withJSONObject: meta),
+           let metaString = String(data: metaData, encoding: .utf8) {
+            body["metadata"] = metaString
+        }
+
+        // TODO: Replace with real Supabase PostgREST call when connected
+        // Example:
+        // let url = URL(string: "\(supabaseURL)/rest/v1/auth_events")!
+        // var request = URLRequest(url: url)
+        // request.httpMethod = "POST"
+        // request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+        // request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        // request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        // let (_, _) = try await URLSession.shared.data(for: request)
+
+        print("AuthEvent logged: [\(eventType)] \(method) - success: \(success)")
+    }
 }
 
 // MARK: - Type Aliases for Compatibility

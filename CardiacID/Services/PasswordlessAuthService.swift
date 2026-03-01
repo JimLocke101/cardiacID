@@ -272,7 +272,9 @@ class PasswordlessAuthService: NSObject, ObservableObject, HoldableService {
         }
     }
     
-    private func authenticateBiometric() async throws -> PasswordlessAuthResult {
+    /// Authenticate using Face ID / Touch ID
+    /// Internal access to allow BiometricFallbackChainService to call directly
+    func authenticateBiometric() async throws -> PasswordlessAuthResult {
         return try await withCheckedThrowingContinuation { continuation in
             localAuthContext.evaluatePolicy(
                 .deviceOwnerAuthenticationWithBiometrics,

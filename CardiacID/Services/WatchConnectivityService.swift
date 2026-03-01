@@ -501,6 +501,60 @@ class WatchConnectivityService: NSObject, ObservableObject {
 
         sendMessage(message)
     }
+    // MARK: - Token Relay to Watch
+
+    /// Proactively push EntraID token to Watch via transferUserInfo (guaranteed delivery)
+    /// transferUserInfo is FIFO-queued and delivered even when Watch is backgrounded
+    func pushTokenToWatch(
+        accessToken: String,
+        refreshToken: String?,
+        expiresAt: Date,
+        userId: String,
+        displayName: String
+    ) {
+        guard session.activationState == .activated else {
+            print("Watch session not activated, cannot push token")
+            return
+        }
+
+        let payload: [String: Any] = [
+            "message_type": "token_relay",
+            "access_token": accessToken,
+            "refresh_token": refreshToken ?? "",
+            "expires_at": expiresAt.timeIntervalSince1970,
+            "user_id": userId,
+            "display_name": displayName,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        // transferUserInfo is queued and delivered when Watch becomes reachable
+        session.transferUserInfo(payload)
+        print("iOS: Pushed token to Watch via transferUserInfo for \(displayName)")
+
+        // Also try immediate delivery if reachable
+        if session.isReachable {
+            session.sendMessage(payload, replyHandler: nil) { error in
+                print("iOS: Immediate token push failed (queued via transferUserInfo): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Push enrollment validation back to Watch after iPhone confirms enrollment
+    func pushEnrollmentValidation(userId: String, templateHash: String, enrollmentStatus: String) {
+        guard session.activationState == .activated else { return }
+
+        let payload: [String: Any] = [
+            "message_type": "enrollment_sync",
+            "user_id": userId,
+            "template_hash": templateHash,
+            "enrollment_status": enrollmentStatus,
+            "validated": true,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        session.transferUserInfo(payload)
+        print("iOS: Pushed enrollment validation to Watch for user \(userId)")
+    }
     #endif
 
     #if os(watchOS)
@@ -683,6 +737,14 @@ extension WatchConnectivityService: WCSessionDelegate {
         }
     }
 
+    // Receive queued transferUserInfo payloads (token relay, enrollment sync)
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        Task { @MainActor in
+            print("Received transferUserInfo from Watch")
+            self.handleReceivedMessage(userInfo, session: WCSession.default, replyHandler: nil)
+        }
+    }
+
     // MARK: - Message Handling
 
     private func handleReceivedMessage(_ message: [String: Any], session: WCSession, replyHandler: (([String: Any]) -> Void)?) {
@@ -745,6 +807,15 @@ extension WatchConnectivityService: WCSessionDelegate {
                     if session.isReachable {
                         session.sendMessage(authMessage, replyHandler: nil)
                     }
+
+                    // Proactively push token to Watch via transferUserInfo for reliable delivery
+                    self.pushTokenToWatch(
+                        accessToken: accessToken,
+                        refreshToken: nil,
+                        expiresAt: Date().addingTimeInterval(3600),
+                        userId: user.id,
+                        displayName: user.displayName
+                    )
 
                     replyHandler?(["success": true, "message": "Authentication completed"])
                 } else {
@@ -1318,6 +1389,19 @@ extension WatchConnectivityService: WCSessionDelegate {
                 "authenticated": authenticated
             ]
         )
+
+        // Trigger biometric fallback if confidence is below threshold or not authenticated
+        if confidence < 0.70 || !authenticated {
+            NotificationCenter.default.post(
+                name: .heartIDFallbackRequired,
+                object: nil,
+                userInfo: [
+                    "confidence": confidence,
+                    "reason": confidence < 0.70 ? "Low confidence (\(Int(confidence * 100))%)" : "Not authenticated",
+                    "userName": userName
+                ]
+            )
+        }
     }
 
     // MARK: - Watch Heartbeat Handler
@@ -1350,4 +1434,6 @@ extension Notification.Name {
     static let heartIDAuthenticationResult = Notification.Name("HeartIDAuthenticationResult")
     static let fido2AuthenticationResult = Notification.Name("FIDO2AuthenticationResult")
     static let fido2RegistrationResult = Notification.Name("FIDO2RegistrationResult")
+    static let heartIDFallbackRequired = Notification.Name("HeartIDFallbackRequired")
+    static let enrollmentSyncValidated = Notification.Name("EnrollmentSyncValidated")
 }

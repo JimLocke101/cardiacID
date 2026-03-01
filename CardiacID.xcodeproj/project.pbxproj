@@ -102,7 +102,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		FB0698942F31A6C30065B071 /* CardiacID Watch App.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CardiacID Watch App.xctestplan"; sourceTree = "<group>"; };
+		FB0698942F31A6C30065B071 /* CardiacID Watch App.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "CardiacID Watch App.xctestplan"; sourceTree = "<group>"; };
 		FB16D8E92F02645E002EB338 /* IMPLEMENTATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_GUIDE.md; sourceTree = "<group>"; };
 		FB16DB842F027B3A002EB338 /* clean_build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = clean_build.sh; sourceTree = "<group>"; };
 		FB16DB882F027BB6002EB338 /* BUILD_FIX_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = BUILD_FIX_GUIDE.md; sourceTree = "<group>"; };
@@ -757,8 +757,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "CardiacID-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
-				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "CardiacID uses Bluetooth to communicate with door locks and access control devices for biometric authentication.";
+				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "CardiacID uses Bluetooth to communicate with door locks and access control devices for biometric authentication.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ARGOS.CardiacID;
@@ -794,8 +794,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "CardiacID-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = CardiacID_0_8;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "";
-				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "CardiacID uses Bluetooth to communicate with door locks and access control devices for biometric authentication.";
+				INFOPLIST_KEY_NSBluetoothWhileInUseUsageDescription = "CardiacID uses Bluetooth to communicate with door locks and access control devices for biometric authentication.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "HeartID needs access to your heart rate and ECG data to create and verify your unique cardiac biometric template for authentication. Your biometric data is stored securely on this device only and never leaves your watch.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = ARGOS.CardiacID;
@@ -849,11 +849,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8;
+				MARKETING_VERSION = 0.85;
 				PRODUCT_BUNDLE_IDENTIFIER = ARGOS.CardiacID;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -891,11 +894,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.8;
+				MARKETING_VERSION = 0.85;
 				PRODUCT_BUNDLE_IDENTIFIER = ARGOS.CardiacID;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
