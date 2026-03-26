@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(plutil:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(for f in BuildConfiguration.swift MSALConfiguration.swift PlatformAuthService.swift SharedAuthTokenManager.swift SimpleAuthService.swift SimpleAuthView.swift UnifiedAuthService.swift UnifiedAuthView.swift WatchAuthService.swift WatchAuthView.swift iOSAuthView.swift)",
+      "Bash(do mv \"/Users/jimlocke/Desktop/Working_folder/CardiacID/$f\" \"/Users/jimlocke/Desktop/Working_folder/CardiacID/Archive/OrphanedRootFiles_2026-01-02/\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(rm:*)",
+      "Bash(swiftc -parse:*)",
+      "Bash(swift -typecheck:*)",
+      "Bash(swiftc:*)",
+      "Bash(brctl status:*)",
+      "Bash(xattr:*)",
+      "Bash(chmod:*)",
+      "Bash(/Users/jimlocke/Desktop/Working_folder/CardiacID/scripts/clean_and_build.sh:*)"
+    ]
+  }
+}

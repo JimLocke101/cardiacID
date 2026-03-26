@@ -67,9 +67,9 @@ struct EnvironmentConfig {
         self.useMockData = bundle.boolValue(forKey: "HEARTID_USE_MOCK_DATA", default: false)
 
         // API Configuration
-        self.supabaseURL = bundle.object(forInfoDictionaryKey: "HEARTID_SUPABASE_URL") as? String ?? "https://xytycgdlafncjszhgems.supabase.co"
-        self.supabaseProjectID = bundle.object(forInfoDictionaryKey: "HEARTID_SUPABASE_PROJECT_ID") as? String ?? "xytycgdlafncjszhgems"
-        self.supabaseAnonKey = bundle.object(forInfoDictionaryKey: "HEARTID_SUPABASE_ANON_KEY") as? String ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dHljZ2RsYWZuY2pzemhnZW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzOTc2MDIsImV4cCI6MjA3Nzk3MzYwMn0.F1uiQX0U_H78C8JATrwlpKys9UzUyaM_nMZUHNrvp7I"
+        self.supabaseURL = bundle.object(forInfoDictionaryKey: "HEARTID_SUPABASE_URL") as? String ?? SupabaseConfiguration.projectURL
+        self.supabaseProjectID = bundle.object(forInfoDictionaryKey: "HEARTID_SUPABASE_PROJECT_ID") as? String ?? SupabaseConfiguration.projectRef
+        self.supabaseAnonKey = bundle.object(forInfoDictionaryKey: "HEARTID_SUPABASE_ANON_KEY") as? String ?? SupabaseConfiguration.anonKey
 
         // EntraID Configuration
         self.entraIDAuthority = bundle.object(forInfoDictionaryKey: "HEARTID_ENTRAID_AUTHORITY") as? String ?? "https://login.microsoftonline.com"

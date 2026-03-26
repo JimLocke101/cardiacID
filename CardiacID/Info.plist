@@ -14,7 +14,25 @@
 				<string>msauth.ARGOS.CardiacID</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>com.argos.cardiacid.eam</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>cardiacid</string>
+			</array>
+		</dict>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>CardiacID uses Face ID as a fallback authentication method when HeartID verification is unavailable.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>CardiacID reads heart rate and ECG data from Apple Watch to verify your cardiac identity.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>CardiacID records authentication events related to your cardiac biometric sessions.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>CardiacID uses NFC to read and write HeartID authentication tags for secure access control.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>msauthv2</string>

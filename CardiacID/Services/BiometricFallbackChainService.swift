@@ -37,6 +37,9 @@ class BiometricFallbackChainService: ObservableObject {
 
     private let heartIDMinConfidence: Double = 0.70
     private let heartIDTimeout: TimeInterval = 15.0
+    /// Maximum age of a Watch biometric reading before it is considered stale.
+    /// Readings older than this are skipped and the chain falls to Step 2.
+    private let biometricMaxAge: TimeInterval = 120.0
 
     // MARK: - Types
 
@@ -98,18 +101,26 @@ class BiometricFallbackChainService: ObservableObject {
         // Step 1: HeartID (Watch)
         currentMethod = .heartID
         if watchConnectivity.isEffectivelyConnected {
-            let confidence = watchConnectivity.liveBiometricConfidence
-            if confidence >= heartIDMinConfidence && watchConnectivity.liveBiometricAuthenticated {
-                let result = FallbackAuthResult(
-                    success: true, method: .heartID,
-                    confidence: confidence, fallbacksUsed: [], error: nil
-                )
-                lastResult = result
-                logEvent(method: .heartID, success: true, reason: "Confidence \(Int(confidence * 100))%")
-                return result
+            // Verify the biometric reading is fresh enough to trust
+            if let readingAge = watchConnectivity.liveBiometricTimestamp.map({ Date().timeIntervalSince($0) }),
+               readingAge <= biometricMaxAge {
+                let confidence = watchConnectivity.liveBiometricConfidence
+                if confidence >= heartIDMinConfidence && watchConnectivity.liveBiometricAuthenticated {
+                    let result = FallbackAuthResult(
+                        success: true, method: .heartID,
+                        confidence: confidence, fallbacksUsed: [], error: nil
+                    )
+                    lastResult = result
+                    logEvent(method: .heartID, success: true, reason: "Confidence \(Int(confidence * 100))% (\(Int(readingAge))s old)")
+                    return result
+                }
+                logEvent(method: .heartID, success: false,
+                         reason: "Confidence \(Int(confidence * 100))% below \(Int(heartIDMinConfidence * 100))% threshold")
+            } else {
+                let age = watchConnectivity.liveBiometricTimestamp.map { Int(Date().timeIntervalSince($0)) } ?? -1
+                logEvent(method: .heartID, success: false,
+                         reason: age >= 0 ? "Biometric reading stale (\(age)s > \(Int(biometricMaxAge))s limit)" : "No biometric reading available")
             }
-            logEvent(method: .heartID, success: false,
-                     reason: "Confidence \(Int(confidence * 100))% below \(Int(heartIDMinConfidence * 100))% threshold")
         } else {
             logEvent(method: .heartID, success: false, reason: "Watch unreachable")
         }

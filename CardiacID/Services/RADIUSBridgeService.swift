@@ -83,6 +83,16 @@ class RADIUSBridgeService: ObservableObject {
 
     // MARK: - Configuration
 
+    /// Non-sensitive fields persisted to UserDefaults.
+    /// The sharedSecret is stored separately in the Keychain via SecureCredentialManager.
+    private struct PersistableRADIUSConfig: Codable {
+        let serverAddress: String
+        let serverPort: Int
+        let npsExtensionEnabled: Bool
+        let entraPrivateAccessEnabled: Bool
+        let minimumBiometricConfidence: Double
+    }
+
     func configure(_ config: RADIUSConfig) {
         self.config = config
         isConfigured = !config.serverAddress.isEmpty && !config.sharedSecret.isEmpty
@@ -90,15 +100,40 @@ class RADIUSBridgeService: ObservableObject {
     }
 
     private func loadConfiguration() {
-        if let data = UserDefaults.standard.data(forKey: "radius_config"),
-           let decoded = try? JSONDecoder().decode(RADIUSConfig.self, from: data) {
-            config = decoded
-            isConfigured = !decoded.serverAddress.isEmpty && !decoded.sharedSecret.isEmpty
-        }
+        guard let data = UserDefaults.standard.data(forKey: "radius_config"),
+              let persisted = try? JSONDecoder().decode(PersistableRADIUSConfig.self, from: data) else { return }
+
+        // Retrieve shared secret from Keychain (never from UserDefaults)
+        let secret = (try? SecureCredentialManager.shared.retrieve(forKey: .radiusSharedSecret)) ?? ""
+
+        config = RADIUSConfig(
+            serverAddress: persisted.serverAddress,
+            serverPort: persisted.serverPort,
+            sharedSecret: secret,
+            npsExtensionEnabled: persisted.npsExtensionEnabled,
+            entraPrivateAccessEnabled: persisted.entraPrivateAccessEnabled,
+            minimumBiometricConfidence: persisted.minimumBiometricConfidence
+        )
+        isConfigured = !persisted.serverAddress.isEmpty && !secret.isEmpty
     }
 
     private func saveConfiguration() {
-        if let encoded = try? JSONEncoder().encode(config) {
+        // Store the shared secret in Keychain — never in UserDefaults
+        if !config.sharedSecret.isEmpty {
+            try? SecureCredentialManager.shared.store(
+                config.sharedSecret, forKey: .radiusSharedSecret
+            )
+        }
+
+        // Persist all non-sensitive fields to UserDefaults
+        let persisted = PersistableRADIUSConfig(
+            serverAddress: config.serverAddress,
+            serverPort: config.serverPort,
+            npsExtensionEnabled: config.npsExtensionEnabled,
+            entraPrivateAccessEnabled: config.entraPrivateAccessEnabled,
+            minimumBiometricConfidence: config.minimumBiometricConfidence
+        )
+        if let encoded = try? JSONEncoder().encode(persisted) {
             UserDefaults.standard.set(encoded, forKey: "radius_config")
         }
     }

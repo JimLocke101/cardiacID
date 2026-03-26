@@ -7,9 +7,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-const ISSUER_URL = Deno.env.get("CARDIACID_ISSUER_URL") || "https://your-project.supabase.co/functions/v1";
-const TENANT_ID = "71fec99d-2fb1-4c59-b8a0-32d27906433f";
-const CLIENT_ID = "c6414bc9-b537-4305-b277-a86f63fdb5ed";
+const ISSUER_URL = Deno.env.get("CARDIACID_ISSUER_URL") || "https://iufsxauhrnaunglfxtly.supabase.co/functions/v1";
 
 serve(async (req: Request) => {
   // Handle CORS preflight

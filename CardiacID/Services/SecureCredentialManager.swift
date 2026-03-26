@@ -20,6 +20,7 @@ enum CredentialKey: String, CaseIterable {
     case biometricEncryptionKey = "biometric_encryption_key"
     case supabaseAPIKey = "supabase_api_key"
     case supabaseURL = "supabase_url"
+    case radiusSharedSecret = "radius_shared_secret"
 }
 
 enum SecurityLevel {

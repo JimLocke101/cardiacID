@@ -57,6 +57,7 @@ struct CardiacIDApp: App {
     @StateObject private var authManager = AuthenticationManager()
     @StateObject private var watchConnectivity = WatchConnectivityService.shared
     @StateObject private var authViewModel = AuthViewModel()
+    @StateObject private var heartIDServices = HeartIDServiceLocator.shared
     
     // Launch state
     @State private var isShowingLaunchScreen = true
@@ -76,6 +77,7 @@ struct CardiacIDApp: App {
                             .environmentObject(authViewModel)
                             .environmentObject(authManager)
                             .environmentObject(watchConnectivity)
+                            .environmentObject(heartIDServices)
                             .transition(.opacity)
                     } else {
                         // Auth screen - shows SignUp or Login based on initial flow
@@ -133,11 +135,29 @@ struct CardiacIDApp: App {
                 watchConnectivity.updateConnectionState()
                 print("📱 Watch state on foreground - Paired: \(watchConnectivity.isPaired), Installed: \(watchConnectivity.isInstalled), Reachable: \(watchConnectivity.isReachable)")
             }
-            // MARK: - MSAL URL Handler (iOS 14+)
-            // Handle OAuth callback URLs from Microsoft authentication
+            // MARK: - URL Handler (iOS 14+)
+            // Routes deep links for both MSAL OAuth callbacks and CardiacID EAM sessions.
+            // EAM scheme: cardiacid://eam?session=<session_id>
+            // MSAL scheme: msauth.ARGOS.CardiacID://auth
             .onOpenURL { url in
-                print("📱 MSAL: Received URL via onOpenURL: \(url.absoluteString)")
+                print("📱 Deep link received: \(url.absoluteString)")
 
+                // --- CardiacID EAM session deep link ---
+                // The browser page (shown during Entra ID Conditional Access) embeds
+                // a deep link so the user can tap to open the app and verify biometrics.
+                if url.scheme == "cardiacid", url.host == "eam",
+                   let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                   let sessionId  = components.queryItems?.first(where: { $0.name == "session" })?.value {
+                    print("📱 EAM: Opening session \(sessionId)")
+                    NotificationCenter.default.post(
+                        name: .init("CardiacIDEAMSessionRequested"),
+                        object: nil,
+                        userInfo: ["session_id": sessionId]
+                    )
+                    return
+                }
+
+                // --- MSAL OAuth callback ---
                 #if canImport(MSAL)
                 let handled = MSALPublicClientApplication.handleMSALResponse(
                     url,
@@ -167,6 +187,10 @@ struct CardiacIDApp: App {
     private func initializeApp() {
         // Start initialization tasks
         Task {
+            // Bootstrap Supabase — must run before any service uses AppSupabaseClient
+            let supabaseReady = SupabaseConfiguration.bootstrap()
+            if supabaseReady { SupabaseConfiguration.printConfiguration() }
+
             // Initialize services
             debugLog.watch("Initializing watch connectivity service...")
 
@@ -182,6 +206,9 @@ struct CardiacIDApp: App {
 
                 debugLog.watch("Watch connectivity initialized - Paired: \(watchConnectivity.isPaired), Installed: \(watchConnectivity.isInstalled), Reachable: \(watchConnectivity.isReachable)")
             }
+
+            // HeartID security layer is ready (service locator self-initialises)
+            debugLog.info("HeartID service locator initialized: policy=\(type(of: heartIDServices.policyEngine)), vault items=\(heartIDServices.vault.items.count)")
 
             debugLog.health("Setting up HealthKit store...")
             authManager.setupHealthStore()

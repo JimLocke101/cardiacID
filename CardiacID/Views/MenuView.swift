@@ -94,6 +94,45 @@ struct MenuView: View {
                                 .background(colors.secondary.opacity(0.3))
                                 .padding(.vertical, 10)
 
+                            // HeartID Secure Access Section
+                            Text("HeartID Secure Access")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(colors.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+
+                            MenuItemButton(
+                                icon: "shield.lefthalf.filled",
+                                title: "Secure Access",
+                                destination: AnyView(SecureAccessDashboardView())
+                            )
+
+                            MenuItemButton(
+                                icon: "lock.doc.fill",
+                                title: "File Vault",
+                                destination: AnyView(ProtectedFileVaultView())
+                            )
+
+                            MenuItemButton(
+                                icon: "exclamationmark.shield.fill",
+                                title: "Secure Actions",
+                                destination: AnyView(SecureActionDemoView())
+                            )
+
+                            #if DEBUG
+                            MenuItemButton(
+                                icon: "ladybug.fill",
+                                title: "Policy Debug",
+                                destination: AnyView(SecurityDebugView())
+                            )
+                            #endif
+
+                            Divider()
+                                .background(colors.secondary.opacity(0.3))
+                                .padding(.vertical, 10)
+
                             // Danger Zone
                             MenuItemButton(
                                 icon: "trash.fill",
