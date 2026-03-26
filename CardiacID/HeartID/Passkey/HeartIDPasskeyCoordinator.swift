@@ -206,7 +206,9 @@ final class PasskeyCoordinator: ObservableObject {
         self.sessionTrustManager = DefaultSessionTrustManager()
         self.policyEngine = DefaultHeartAuthPolicyEngine()
         self.auditLogger = DefaultAuditLogger()
-        self.passkeyService = MockPasskeyService()
+        // Production: real WebAuthn RP server calls via Supabase Edge Functions.
+        // Falls back to MockPasskeyService() if WebAuthnPasskeyService is unavailable.
+        self.passkeyService = WebAuthnPasskeyService()
     }
 
     // MARK: - Registration

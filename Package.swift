@@ -7,7 +7,8 @@ let package = Package(
     name: "CardiacID",
     platforms: [
         .iOS(.v16),
-        .watchOS(.v9)
+        .watchOS(.v9),
+        .macOS(.v13)
     ],
     products: [
         .library(
@@ -16,6 +17,8 @@ let package = Package(
         ),
     ],
     dependencies: [
+        // HeartIDCore — local package: platform-agnostic models, engines, and protocols
+        .package(path: "HeartIDCore"),
         // Supabase Swift SDK
         .package(
             url: "https://github.com/supabase/supabase-swift.git",
@@ -31,6 +34,7 @@ let package = Package(
         .target(
             name: "CardiacID",
             dependencies: [
+                .product(name: "HeartIDCore", package: "HeartIDCore"),
                 .product(name: "Supabase", package: "supabase-swift"),
                 .product(name: "Auth", package: "supabase-swift"),
                 .product(name: "Realtime", package: "supabase-swift"),

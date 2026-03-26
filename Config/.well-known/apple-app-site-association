@@ -1,0 +1,19 @@
+{
+  "webcredentials": {
+    "apps": [
+      "ARGOS.CardiacID"
+    ]
+  },
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "ARGOS.CardiacID",
+        "paths": [
+          "/webauthn/*",
+          "/eam/*"
+        ]
+      }
+    ]
+  }
+}
