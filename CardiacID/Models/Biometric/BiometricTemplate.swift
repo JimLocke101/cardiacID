@@ -81,9 +81,14 @@ struct PPGBaseline: Codable {
     let hrvMean: Double
     let hrvStdDev: Double
 
+    // Real HRV biometric metrics (required for DoD-grade PPG matching)
+    let hrvRMSSD: Double           // Root Mean Square of Successive Differences
+    let hrvSDNN: Double            // Standard Deviation of NN intervals
+
     // Rhythm characteristics
-    let rhythmPattern: [Double] // Normalized beat intervals
+    let rhythmPattern: [Double]    // Normalized beat intervals
     let rhythmStability: Double
+    let heartRateVariability: Double // Characteristic HR fluctuation (stddev of BPM)
 
     // Respiratory sinus arrhythmia
     let respiratoryPattern: [Double]
@@ -92,17 +97,23 @@ struct PPGBaseline: Codable {
     let movementBaseline: Double
 
     private enum CodingKeys: String, CodingKey {
-        case restingHeartRate, heartRateRange, hrvMean, hrvStdDev
-        case rhythmPattern, rhythmStability, respiratoryPattern, movementBaseline
+        case restingHeartRate, heartRateRange, hrvMean, hrvStdDev, hrvRMSSD, hrvSDNN
+        case rhythmPattern, rhythmStability, heartRateVariability, respiratoryPattern, movementBaseline
     }
 
-    init(restingHeartRate: Double, heartRateRange: ClosedRange<Double>, hrvMean: Double, hrvStdDev: Double, rhythmPattern: [Double], rhythmStability: Double, respiratoryPattern: [Double], movementBaseline: Double) {
+    init(restingHeartRate: Double, heartRateRange: ClosedRange<Double>, hrvMean: Double, hrvStdDev: Double,
+         hrvRMSSD: Double = 0.035, hrvSDNN: Double = 0.050,
+         rhythmPattern: [Double], rhythmStability: Double, heartRateVariability: Double = 5.0,
+         respiratoryPattern: [Double], movementBaseline: Double) {
         self.restingHeartRate = restingHeartRate
         self.heartRateRange = heartRateRange
         self.hrvMean = hrvMean
         self.hrvStdDev = hrvStdDev
+        self.hrvRMSSD = hrvRMSSD
+        self.hrvSDNN = hrvSDNN
         self.rhythmPattern = rhythmPattern
         self.rhythmStability = rhythmStability
+        self.heartRateVariability = heartRateVariability
         self.respiratoryPattern = respiratoryPattern
         self.movementBaseline = movementBaseline
     }
@@ -113,8 +124,11 @@ struct PPGBaseline: Codable {
         try container.encode(["lower": heartRateRange.lowerBound, "upper": heartRateRange.upperBound], forKey: .heartRateRange)
         try container.encode(hrvMean, forKey: .hrvMean)
         try container.encode(hrvStdDev, forKey: .hrvStdDev)
+        try container.encode(hrvRMSSD, forKey: .hrvRMSSD)
+        try container.encode(hrvSDNN, forKey: .hrvSDNN)
         try container.encode(rhythmPattern, forKey: .rhythmPattern)
         try container.encode(rhythmStability, forKey: .rhythmStability)
+        try container.encode(heartRateVariability, forKey: .heartRateVariability)
         try container.encode(respiratoryPattern, forKey: .respiratoryPattern)
         try container.encode(movementBaseline, forKey: .movementBaseline)
     }
@@ -126,8 +140,12 @@ struct PPGBaseline: Codable {
         heartRateRange = (rangeDict["lower"] ?? 60)...(rangeDict["upper"] ?? 100)
         hrvMean = try container.decode(Double.self, forKey: .hrvMean)
         hrvStdDev = try container.decode(Double.self, forKey: .hrvStdDev)
+        // Backward-compatible: default to typical physiological values if missing
+        hrvRMSSD = try container.decodeIfPresent(Double.self, forKey: .hrvRMSSD) ?? 0.035
+        hrvSDNN = try container.decodeIfPresent(Double.self, forKey: .hrvSDNN) ?? 0.050
         rhythmPattern = try container.decode([Double].self, forKey: .rhythmPattern)
         rhythmStability = try container.decode(Double.self, forKey: .rhythmStability)
+        heartRateVariability = try container.decodeIfPresent(Double.self, forKey: .heartRateVariability) ?? 5.0
         respiratoryPattern = try container.decode([Double].self, forKey: .respiratoryPattern)
         movementBaseline = try container.decode(Double.self, forKey: .movementBaseline)
     }

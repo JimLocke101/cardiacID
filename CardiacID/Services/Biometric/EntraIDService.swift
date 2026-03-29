@@ -323,22 +323,31 @@ private class RealEntraIDServiceImpl: EntraIDServiceProtocol {
 
     // MARK: - Private Methods
     private func performRealAuthentication() async throws -> EntraIDUserModel {
-        // This is where the real MSAL authentication would happen
-        // For now, simulate it
-        try await Task.sleep(nanoseconds: 2_000_000_000)
+        // TODO: Replace with real MSAL authentication via EntraIDAuthClient.shared
+        // This stub exists because the real MSAL flow requires a UIViewController
+        // presentation context that is not available in this service layer.
+        // Phase 1 integration: wire EntraIDAuthClient.signIn() here.
 
-        // Create a mock user for now - replace with real MSAL integration
+        // SECURITY: In production, this must call the real MSAL SDK.
+        // The stub below prevents a crash but does NOT authenticate.
+        #if DEBUG
+        // Debug builds: return a clearly-marked test user for UI development
+        try await Task.sleep(nanoseconds: 1_000_000_000)
         return EntraIDUserModel(
-            id: "real-user-id",
-            displayName: "Real User",
-            email: "real.user@company.com",
-            jobTitle: "Employee",
-            department: "Production",
-            permissions: ["door.access", "nfc.access"],
-            groups: ["Users"],
-            tenantId: "real-tenant-id",
-            userPrincipalName: "real.user@company.com"
+            id: "debug-stub-user",
+            displayName: "Debug User (NOT AUTHENTICATED)",
+            email: "debug.stub@not-real.local",
+            jobTitle: "Debug Stub",
+            department: "Debug",
+            permissions: [],
+            groups: [],
+            tenantId: "debug-tenant",
+            userPrincipalName: "debug.stub@not-real.local"
         )
+        #else
+        // Release builds: fail immediately — no silent stub auth
+        throw EntraIDServiceError.notAuthenticated
+        #endif
     }
 }
 

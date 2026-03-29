@@ -1,8 +1,13 @@
 // DemoModeManager.swift
 // Central runtime switch for demo mode based on credentials
+//
+// SECURITY: Entire class is gated behind #if DEBUG.
+// In Release builds, isDemoEnabled is always false and evaluateCredentials is a no-op.
+// Hardcoded credentials never exist in the production binary.
 
 import Foundation
 
+#if DEBUG
 final class DemoModeManager {
     static let shared = DemoModeManager()
     private init() {}
@@ -25,3 +30,21 @@ final class DemoModeManager {
         isDemoEnabled = UserDefaults.standard.bool(forKey: "DemoModeEnabled")
     }
 }
+#else
+// Production stub: demo mode is permanently disabled.
+// No hardcoded credentials exist in this build.
+final class DemoModeManager {
+    static let shared = DemoModeManager()
+    private init() {}
+
+    var isDemoEnabled: Bool { false }
+
+    func evaluateCredentials(email: String, password: String) {
+        // No-op in production. Credentials are never evaluated.
+    }
+
+    func loadPersisted() {
+        // No-op in production.
+    }
+}
+#endif

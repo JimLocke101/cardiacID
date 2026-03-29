@@ -108,49 +108,37 @@ protocol PasskeyServiceProtocol: Sendable {
     func completeAssertion(_ response: PasskeyAssertionResponse) async throws -> PasskeyAssertionResult
 }
 
-// MARK: - MockPasskeyService
+// MARK: - MockPasskeyService (DEBUG only)
 
+#if DEBUG
+/// Debug-only mock. Never compiled into Release builds.
 /// Simulates WebAuthn server responses with a 0.5 s artificial delay.
-/// Replace with a real implementation when RP server is deployed.
 struct MockPasskeyService: PasskeyServiceProtocol {
-
     private func simulateNetwork() async {
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 s
+        try? await Task.sleep(nanoseconds: 500_000_000)
     }
-
     func beginRegistration(for userId: String) async throws -> PasskeyRegistrationChallenge {
         await simulateNetwork()
         return PasskeyRegistrationChallenge(
             challengeData: Data("mock-reg-challenge-\(userId)".utf8),
-            relyingPartyId: "cardiacid.com",
-            userId: userId,
-            userName: "\(userId)@cardiacid.com"
-        )
+            relyingPartyId: "cardiacid.com", userId: userId, userName: "\(userId)@cardiacid.com")
     }
-
     func completeRegistration(_ response: PasskeyRegistrationResponse) async throws {
         await simulateNetwork()
-        // Stub: server would validate attestation here
     }
-
     func beginAssertion(for userId: String) async throws -> PasskeyAssertionChallenge {
         await simulateNetwork()
         return PasskeyAssertionChallenge(
             challengeData: Data("mock-assert-challenge-\(userId)".utf8),
-            relyingPartyId: "cardiacid.com",
-            allowedCredentialIds: []
-        )
+            relyingPartyId: "cardiacid.com", allowedCredentialIds: [])
     }
-
     func completeAssertion(_ response: PasskeyAssertionResponse) async throws -> PasskeyAssertionResult {
         await simulateNetwork()
-        return PasskeyAssertionResult(
-            verified: true,
-            userId: "mock-user",
-            sessionToken: "mock-session-\(UUID().uuidString.prefix(8))"
-        )
+        return PasskeyAssertionResult(verified: true, userId: "mock-user",
+                                      sessionToken: "mock-session-\(UUID().uuidString.prefix(8))")
     }
 }
+#endif
 
 // MARK: - PasskeyCoordinator
 

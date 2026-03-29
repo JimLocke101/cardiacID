@@ -86,32 +86,117 @@ class BiometricMatchingService {
         return (hrvVariability + naturalNoise + baselineNatural) / 3.0
     }
 
-    // MARK: - PPG Matching (85-92% accuracy for continuous monitoring)
+    // MARK: - PPG Matching (real RMSSD + IBI variance — ported from Watch engine)
 
-    /// Match current heart rate against PPG baseline
-    /// Used for continuous background authentication
-    func matchPPGPattern(heartRate: Double, template: BiometricTemplate) -> Double {
+    /// Match current cardiac signals against PPG baseline.
+    /// Uses real RMSSD and inter-beat interval variance — NOT hardcoded scores.
+    ///
+    /// Parameters:
+    ///   - heartRate: current BPM
+    ///   - beatIntervals: recent RR intervals in seconds (need ≥10 for reliable HRV)
+    ///   - heartRates: recent BPM samples (need ≥5 for rhythm analysis)
+    ///   - template: enrolled biometric template with PPG baseline
+    func matchPPGPattern(
+        heartRate: Double,
+        beatIntervals: [Double] = [],
+        heartRates: [Double] = [],
+        template: BiometricTemplate
+    ) -> Double {
         let baseline = template.ppgBaseline
 
-        // 1. Heart rate range check
+        // 1. Heart rate range check (40% weight)
         let hrInRange = heartRate >= baseline.heartRateRange.lowerBound &&
                         heartRate <= baseline.heartRateRange.upperBound
-
         let hrScore = hrInRange ? 1.0 : max(0.0, 1.0 - abs(heartRate - baseline.restingHeartRate) / baseline.restingHeartRate)
 
-        // 2. HRV consistency (simplified - real implementation would use recent HRV data)
-        let hrvScore = 0.85 // Placeholder - would calculate from recent PPG data
+        // 2. REAL HRV consistency from beat intervals (30% weight)
+        let hrvScore = calculateHRVConsistency(beatIntervals: beatIntervals, baseline: baseline)
 
-        // 3. Rhythm consistency
-        let rhythmScore = 0.88 // Placeholder - would analyze beat intervals
+        // 3. REAL rhythm consistency from heart rate samples (30% weight)
+        let rhythmScore = calculateRhythmConsistency(heartRates: heartRates, baseline: baseline)
 
-        // PPG achieves 85-92% accuracy
+        // Weighted combination
         let baseScore = (hrScore * 0.4 + hrvScore * 0.3 + rhythmScore * 0.3)
-        let finalScore = min(max(baseScore * 0.92, 0.85), 0.92) // Constrained to 85-92% range
 
-        print("💓 PPG Match: HR=\(String(format: "%.0f", heartRate)) bpm (range: \(Int(baseline.heartRateRange.lowerBound))-\(Int(baseline.heartRateRange.upperBound))) → \(String(format: "%.0f", finalScore * 100))%")
+        // Apply data quality penalty if insufficient samples
+        let qualityFactor = calculatePPGQualityFactor(
+            beatIntervalCount: beatIntervals.count,
+            heartRateCount: heartRates.count
+        )
+
+        let finalScore = min(max(baseScore * qualityFactor, 0.0), 1.0)
+
+        print("💓 PPG Match: HR=\(String(format: "%.0f", heartRate)) bpm, HRV=\(String(format: "%.2f", hrvScore)), Rhythm=\(String(format: "%.2f", rhythmScore)), Quality=\(String(format: "%.2f", qualityFactor)) → \(String(format: "%.0f", finalScore * 100))%")
 
         return finalScore
+    }
+
+    // MARK: - Real HRV Calculation (RMSSD + SDNN)
+
+    /// Calculate HRV consistency from beat intervals using RMSSD and SDNN.
+    /// Returns 0.5 (neutral) if insufficient data — never hardcoded pass.
+    private func calculateHRVConsistency(beatIntervals: [Double], baseline: PPGBaseline) -> Double {
+        guard beatIntervals.count >= 10 else {
+            return 0.5 // Neutral — insufficient data, not a free pass
+        }
+
+        // RMSSD (Root Mean Square of Successive Differences)
+        var sumSquaredDiffs = 0.0
+        for i in 1..<beatIntervals.count {
+            let diff = beatIntervals[i] - beatIntervals[i - 1]
+            sumSquaredDiffs += diff * diff
+        }
+        let rmssd = sqrt(sumSquaredDiffs / Double(beatIntervals.count - 1))
+
+        // SDNN (Standard Deviation of NN intervals)
+        let mean = beatIntervals.reduce(0, +) / Double(beatIntervals.count)
+        let variance = beatIntervals.map { pow($0 - mean, 2) }.reduce(0, +) / Double(beatIntervals.count)
+        let sdnn = sqrt(variance)
+
+        // Compare to enrolled baseline (allow 30% variance as physiological normal)
+        let expectedRMSSD = baseline.hrvRMSSD
+        let expectedSDNN  = baseline.hrvSDNN
+
+        let rmssdSimilarity = 1.0 - min(abs(rmssd - expectedRMSSD) / max(expectedRMSSD, 0.001), 1.0)
+        let sdnnSimilarity  = 1.0 - min(abs(sdnn - expectedSDNN) / max(expectedSDNN, 0.001), 1.0)
+
+        return max(0.0, min(rmssdSimilarity * 0.6 + sdnnSimilarity * 0.4, 1.0))
+    }
+
+    // MARK: - Real Rhythm Consistency (IBI Variance)
+
+    /// Calculate rhythm consistency from heart rate samples.
+    /// Compares the user's characteristic fluctuation pattern against baseline.
+    private func calculateRhythmConsistency(heartRates: [Double], baseline: PPGBaseline) -> Double {
+        guard heartRates.count >= 5 else {
+            return 0.5 // Neutral — insufficient data
+        }
+
+        let mean = heartRates.reduce(0, +) / Double(heartRates.count)
+        let variance = heartRates.map { pow($0 - mean, 2) }.reduce(0, +) / Double(heartRates.count)
+        let stdDev = sqrt(variance)
+
+        // Compare to enrolled rhythm variability
+        let expectedVariability = baseline.heartRateVariability
+        let variabilitySimilarity = 1.0 - min(abs(stdDev - expectedVariability) / max(expectedVariability, 1.0), 1.0)
+
+        // Detect abnormal rhythm patterns (>20 BPM jump between consecutive samples)
+        var abnormalChanges = 0
+        for i in 1..<heartRates.count {
+            if abs(heartRates[i] - heartRates[i - 1]) > 20.0 { abnormalChanges += 1 }
+        }
+        let rhythmStability = 1.0 - (Double(abnormalChanges) / Double(heartRates.count - 1))
+
+        return max(0.0, min(variabilitySimilarity * 0.6 + rhythmStability * 0.4, 1.0))
+    }
+
+    // MARK: - PPG Quality Factor
+
+    /// Penalise score when insufficient PPG samples are available.
+    private func calculatePPGQualityFactor(beatIntervalCount: Int, heartRateCount: Int) -> Double {
+        let intervalQuality  = min(Double(beatIntervalCount) / 10.0, 1.0)
+        let heartRateQuality = min(Double(heartRateCount) / 5.0, 1.0)
+        return (intervalQuality * 0.6 + heartRateQuality * 0.4)
     }
 
     // MARK: - Hybrid Confidence Calculation

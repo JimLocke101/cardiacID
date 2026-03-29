@@ -74,9 +74,11 @@ extension CardiacSignalInput {
     }
 }
 
-// MARK: - Mock Engine (for testing / debug)
+// MARK: - Mock Engine (DEBUG only — never compiled into Release)
 
-/// Returns configurable test results. Thread-safe.
+#if DEBUG
+/// Debug/test-only mock engine. Returns configurable fixed results.
+/// SECURITY: Gated by #if DEBUG. Not present in production binary.
 struct MockHeartIdentityEngine: HeartIdentityEngineProtocol {
     var fixedMatch: Double
     var fixedLiveness: Double
@@ -96,6 +98,6 @@ struct MockHeartIdentityEngine: HeartIdentityEngineProtocol {
         .verified(match: fixedMatch, liveness: fixedLiveness, reasons: fixedReasons)
     }
 
-    /// Convenience: mock that always denies.
     static let denied = MockHeartIdentityEngine(match: 0, liveness: 0, reasons: [.watchUnreachable])
 }
+#endif
