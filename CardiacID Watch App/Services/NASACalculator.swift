@@ -231,30 +231,55 @@ final class NASAECGProcessor {
     // MARK: - Filtering Methods
     enum FilterType { case low, high }
     
+    /// Second-order Butterworth IIR filter (bilinear transform).
+    ///
+    /// Implements the standard bilinear-transformed 2nd-order Butterworth
+    /// transfer function, which is the minimum required for Pan-Tompkins
+    /// QRS detection (the original paper uses cascaded integer-coefficient
+    /// filters, but a 2nd-order Butterworth is the closest continuous-time
+    /// equivalent suitable for variable sampling rates like Apple Watch ECG).
+    ///
+    /// Reference: Butterworth, S. "On the Theory of Filter Amplifiers",
+    ///            Wireless Engineer, vol. 7, 1930, pp. 536–541.
     func butterworthFilter(_ x: [Double], fs: Double, cutoff: Double, type: FilterType) -> [Double] {
-        let rc = 1.0 / (2.0 * Double.pi * cutoff)
-        let dt = 1.0 / fs
-        let alpha = dt / (rc + dt)
-        var y = Array(repeating: 0.0, count: x.count)
-        
+        guard x.count > 2 else { return x }
+
+        // Pre-warp the cutoff frequency for the bilinear transform
+        let wc = tan(Double.pi * cutoff / fs)
+        let wc2 = wc * wc
+        let sqrt2 = 1.4142135623730951 // sqrt(2) — Butterworth Q factor
+
+        // 2nd-order Butterworth coefficients via bilinear transform
+        let k: Double
+        let a0, a1, a2, b1, b2: Double
+
         switch type {
-        case .high:
-            var prev = x.first ?? 0
-            var yh = 0.0
-            for i in 1..<x.count {
-                let xi = x[i]
-                yh = alpha * (yh + xi - prev)
-                y[i] = yh
-                prev = xi
-            }
         case .low:
-            var yl = 0.0
-            for i in 0..<x.count {
-                yl = yl + alpha * (x[i] - yl)
-                y[i] = yl
-            }
+            k = 1.0 / (1.0 + sqrt2 * wc + wc2)
+            a0 = wc2 * k
+            a1 = 2.0 * a0
+            a2 = a0
+            b1 = 2.0 * (wc2 - 1.0) * k
+            b2 = (1.0 - sqrt2 * wc + wc2) * k
+        case .high:
+            k = 1.0 / (1.0 + sqrt2 * wc + wc2)
+            a0 = k
+            a1 = -2.0 * k
+            a2 = k
+            b1 = 2.0 * (wc2 - 1.0) * k
+            b2 = (1.0 - sqrt2 * wc + wc2) * k
         }
-        
+
+        // Direct Form II transposed
+        var y = Array(repeating: 0.0, count: x.count)
+        var z1 = 0.0, z2 = 0.0
+        for i in 0..<x.count {
+            let xi = x[i]
+            y[i] = a0 * xi + z1
+            z1 = a1 * xi - b1 * y[i] + z2
+            z2 = a2 * xi - b2 * y[i]
+        }
+
         return y
     }
     
@@ -293,19 +318,90 @@ final class NASAECGProcessor {
         return y
     }
     
+    /// Pan-Tompkins adaptive dual-threshold peak detection.
+    ///
+    /// Implements the original 1985 algorithm's dual threshold with signal/noise
+    /// peak tracking and search-back mechanism for missed beats.
+    ///
+    /// Reference: Pan & Tompkins, "A Real-Time QRS Detection Algorithm",
+    ///            IEEE Trans. Biomed. Eng., BME-32(3), March 1985, pp. 230–236.
     func adaptivePeaks(_ x: [Double], refractory: Int) -> [Int] {
+        guard x.count > 2 else { return [] }
+
         var peaks: [Int] = []
-        var thr = (x.max() ?? 1.0) * 0.4
-        var last = -refractory
-        
-        for i in 1..<(x.count-1) {
-            if x[i] > thr && x[i] > x[i-1] && x[i] > x[i+1] && (i - last) > refractory {
+
+        // Pan-Tompkins dual threshold initialisation
+        // SPK = running estimate of signal (QRS) peak level
+        // NPK = running estimate of noise peak level
+        // Threshold 1 = NPK + 0.25 * (SPK - NPK)
+        // Threshold 2 = 0.5 * Threshold 1  (for search-back)
+        let initMax = x.max() ?? 1.0
+        var SPK = initMax * 0.5   // signal peak estimate
+        var NPK = initMax * 0.1   // noise peak estimate
+        var thr1 = NPK + 0.25 * (SPK - NPK)
+        var thr2 = 0.5 * thr1    // search-back threshold
+
+        var lastPeakIdx = -refractory
+
+        for i in 1..<(x.count - 1) {
+            // Local maximum check
+            guard x[i] > x[i - 1] && x[i] > x[i + 1] else { continue }
+
+            // Refractory period (200 ms default)
+            guard (i - lastPeakIdx) > refractory else { continue }
+
+            if x[i] > thr1 {
+                // Classified as signal peak (QRS)
                 peaks.append(i)
-                last = i
-                thr = 0.9 * thr + 0.1 * x[i]
+                SPK = 0.125 * x[i] + 0.875 * SPK  // Pan-Tompkins Eq. (1)
+                lastPeakIdx = i
+            } else {
+                // Classified as noise peak
+                NPK = 0.125 * x[i] + 0.875 * NPK  // Pan-Tompkins Eq. (2)
+            }
+
+            // Update thresholds — Pan-Tompkins Eq. (3) & (4)
+            thr1 = NPK + 0.25 * (SPK - NPK)
+            thr2 = 0.5 * thr1
+        }
+
+        // Search-back: if RR interval exceeds 166% of running average,
+        // look for peaks above thr2 in the missed interval.
+        if peaks.count >= 2 {
+            var rrIntervals: [Int] = []
+            for j in 1..<peaks.count {
+                rrIntervals.append(peaks[j] - peaks[j - 1])
+            }
+            let rrAvg = Double(rrIntervals.reduce(0, +)) / Double(rrIntervals.count)
+
+            var insertions: [(idx: Int, pos: Int)] = []
+            for j in 1..<peaks.count {
+                let gap = peaks[j] - peaks[j - 1]
+                if Double(gap) > 1.66 * rrAvg {
+                    // Search back for the highest peak above thr2 in the gap
+                    let searchStart = peaks[j - 1] + refractory
+                    let searchEnd = peaks[j] - refractory
+                    if searchStart < searchEnd {
+                        var bestIdx = searchStart
+                        var bestVal = x[searchStart]
+                        for k in searchStart...searchEnd where k < x.count {
+                            if x[k] > bestVal {
+                                bestVal = x[k]
+                                bestIdx = k
+                            }
+                        }
+                        if bestVal > thr2 {
+                            insertions.append((j, bestIdx))
+                        }
+                    }
+                }
+            }
+            // Insert search-back peaks in reverse order to keep indices valid
+            for ins in insertions.reversed() {
+                peaks.insert(ins.pos, at: ins.idx)
             }
         }
-        
+
         return peaks
     }
     
@@ -333,44 +429,215 @@ final class NASAFeatureExtractor {
         }
     }
     
+    /// Extracts a comprehensive feature vector from a single normalised heartbeat.
+    ///
+    /// NASA HeartBeatID (US Patent 8,924,736 — TOP2-202) specifies "at least 192
+    /// statistical parameters" including peak amplitudes, time intervals,
+    /// depolarization–repolarization vector angles and lengths from PQRST waves.
+    ///
+    /// This implementation extracts features in 8 groups to approach that count:
+    ///   1. Amplitude (10)          — PQRST peaks and ratios
+    ///   2. Temporal (12)           — inter-peak intervals and durations
+    ///   3. Morphological (14)      — slopes, widths, areas, curvatures
+    ///   4. Energy (8)              — total, per-segment, ratios
+    ///   5. Spectral (8)            — band power ratios, dominant frequency
+    ///   6. Statistical (12)        — moments, entropy, zero-crossings
+    ///   7. Wavelet coefficients (64)— multi-resolution decomposition
+    ///   8. Cross-segment (8)       — inter-segment correlations
+    /// Total: ~136 features (extensible toward 192 with multi-lead data)
     private func extractBeatFeatures(_ beat: [Double], fs: Double) -> [Double] {
+        let N = beat.count
+        guard N > 40 else { return Array(repeating: 0, count: 136) }
+
         let R = beat.max() ?? 0
-        let Ridx = beat.firstIndex(of: R) ?? 128
-        
-        // Define analysis windows around R-peak
-        let pre = max(0, Ridx - 20)
-        let post = min(beat.count - 1, Ridx + 20)
-        
-        // Extract NASA-style features
-        var features: [Double] = []
-        
-        // 1. Amplitude features
-        features.append(R) // R amplitude
-        features.append(beat[pre]) // P amplitude
-        features.append(beat[post]) // T amplitude
-        features.append(R / max(beat[pre], 1e-6)) // R/P ratio
-        features.append(R / max(beat[post], 1e-6)) // R/T ratio
-        
-        // 2. Temporal features
-        features.append(Double(Ridx) / fs) // R position
-        features.append(Double(post - pre) / fs) // QRS duration
-        features.append(slope(beat, start: pre, end: Ridx)) // Pre-R slope
-        features.append(slope(beat, start: Ridx, end: post)) // Post-R slope
-        
-        // 3. Morphological features
-        features.append(widthAtHalfMax(beat, center: Ridx) / fs) // QRS width
-        features.append(area(beat, start: pre, end: post)) // QRS area
-        features.append(area(beat, start: post, end: min(beat.count-1, post+20))) // T area
-        
-        // 4. Energy features
-        features.append(vDSP.dot(beat, beat)) // Total energy
-        features.append(energyInBand(beat, start: pre, end: post)) // QRS energy
-        
-        // 5. Spectral features (simplified)
-        let spectralFeatures = extractSpectralFeatures(beat)
-        features.append(contentsOf: spectralFeatures)
-        
-        return features
+        let Ridx = beat.firstIndex(of: R) ?? (N / 2)
+
+        // Locate approximate P and T wave regions
+        let pRegionEnd   = max(0, Ridx - 15)
+        let pRegionStart = max(0, Ridx - 40)
+        let tRegionStart = min(N - 1, Ridx + 15)
+        let tRegionEnd   = min(N - 1, Ridx + 50)
+        let qrsStart     = max(0, Ridx - 10)
+        let qrsEnd       = min(N - 1, Ridx + 10)
+
+        let pAmp = pRegionStart < pRegionEnd ? beat[pRegionStart...pRegionEnd].max() ?? 0 : 0
+        let tAmp = tRegionStart < tRegionEnd ? beat[tRegionStart...tRegionEnd].max() ?? 0 : 0
+        let qAmp = qrsStart < Ridx ? beat[qrsStart..<Ridx].min() ?? 0 : 0
+        let sAmp = Ridx < qrsEnd ? beat[(Ridx+1)...qrsEnd].min() ?? 0 : 0
+
+        var f: [Double] = []
+
+        // --- 1. Amplitude features (10) ---
+        f.append(R)
+        f.append(pAmp)
+        f.append(qAmp)
+        f.append(sAmp)
+        f.append(tAmp)
+        f.append(R / max(abs(pAmp), 1e-6))       // R/P ratio
+        f.append(R / max(abs(tAmp), 1e-6))       // R/T ratio
+        f.append(abs(R - qAmp))                   // R-Q amplitude
+        f.append(abs(R - sAmp))                   // R-S amplitude
+        f.append(abs(pAmp - tAmp))                // P-T amplitude difference
+
+        // --- 2. Temporal features (12) ---
+        f.append(Double(Ridx) / Double(N))        // Normalised R position
+        f.append(Double(qrsEnd - qrsStart) / fs)  // QRS duration
+        f.append(Double(pRegionEnd - pRegionStart) / fs)  // P wave duration
+        f.append(Double(tRegionEnd - tRegionStart) / fs)  // T wave duration
+        f.append(Double(Ridx - pRegionEnd) / fs)  // PR interval
+        f.append(Double(tRegionStart - Ridx) / fs) // ST interval
+        f.append(Double(tRegionEnd - pRegionStart) / fs) // QT interval
+        // Inter-peak time ratios
+        let prInterval = max(Double(Ridx - pRegionEnd), 1)
+        let rtInterval = max(Double(tRegionStart - Ridx), 1)
+        f.append(prInterval / rtInterval)
+        f.append(Double(qrsEnd - qrsStart) / max(Double(tRegionEnd - pRegionStart), 1)) // QRS/QT ratio
+        f.append(slope(beat, start: pRegionStart, end: pRegionEnd)) // P wave slope
+        f.append(slope(beat, start: qrsStart, end: Ridx))          // Pre-R slope
+        f.append(slope(beat, start: Ridx, end: qrsEnd))            // Post-R slope
+
+        // --- 3. Morphological features (14) ---
+        f.append(widthAtHalfMax(beat, center: Ridx) / fs)
+        f.append(area(beat, start: pRegionStart, end: pRegionEnd))  // P area
+        f.append(area(beat, start: qrsStart, end: qrsEnd))         // QRS area
+        f.append(area(beat, start: tRegionStart, end: tRegionEnd)) // T area
+        // Curvature at key points (second derivative)
+        if Ridx > 1 && Ridx < N - 1 {
+            f.append(beat[Ridx - 1] - 2 * beat[Ridx] + beat[Ridx + 1]) // R curvature
+        } else { f.append(0) }
+        if pRegionEnd > 1 && pRegionEnd < N - 1 {
+            f.append(beat[pRegionEnd - 1] - 2 * beat[pRegionEnd] + beat[pRegionEnd + 1])
+        } else { f.append(0) }
+        // Symmetry ratios
+        let preR  = Array(beat[max(0, Ridx - 20)..<Ridx])
+        let postR = Array(beat[Ridx..<min(N, Ridx + 20)])
+        f.append(preR.reduce(0, +) / max(postR.reduce(0, +), 1e-6))  // Pre/post R area ratio
+        f.append(abs(slope(beat, start: qrsStart, end: Ridx)) / max(abs(slope(beat, start: Ridx, end: qrsEnd)), 1e-6)) // Slope ratio
+        // Baseline level estimates
+        f.append(beat[max(0, pRegionStart)])
+        f.append(beat[min(N - 1, tRegionEnd)])
+        f.append(beat[qrsStart])
+        f.append(beat[min(N - 1, qrsEnd)])
+        f.append(beat[Ridx] - (beat[qrsStart] + beat[min(N - 1, qrsEnd)]) / 2) // R height above baseline
+        f.append(tAmp - (beat[tRegionStart] + beat[min(N - 1, tRegionEnd)]) / 2) // T height above baseline
+
+        // --- 4. Energy features (8) ---
+        let totalEnergy = vDSP.dot(beat, beat)
+        f.append(totalEnergy)
+        f.append(energyInBand(beat, start: pRegionStart, end: pRegionEnd))
+        f.append(energyInBand(beat, start: qrsStart, end: qrsEnd))
+        f.append(energyInBand(beat, start: tRegionStart, end: tRegionEnd))
+        f.append(energyInBand(beat, start: qrsStart, end: qrsEnd) / max(totalEnergy, 1e-6)) // QRS/total ratio
+        f.append(energyInBand(beat, start: tRegionStart, end: tRegionEnd) / max(totalEnergy, 1e-6))
+        f.append(energyInBand(beat, start: pRegionStart, end: pRegionEnd) / max(energyInBand(beat, start: tRegionStart, end: tRegionEnd), 1e-6))
+        f.append(sqrt(totalEnergy / Double(N)))  // RMS amplitude
+
+        // --- 5. Spectral features (8) ---
+        f.append(contentsOf: extractSpectralFeatures(beat))
+        // Additional spectral: band ratios
+        let mean = beat.mean()
+        let centered = beat.map { $0 - mean }
+        let q1 = centered.prefix(N/4).map { $0*$0 }.reduce(0,+)
+        let q2 = centered.dropFirst(N/4).prefix(N/4).map { $0*$0 }.reduce(0,+)
+        let q3 = centered.dropFirst(N/2).prefix(N/4).map { $0*$0 }.reduce(0,+)
+        let q4 = centered.suffix(N/4).map { $0*$0 }.reduce(0,+)
+        f.append(q1 / max(q3, 1e-6))
+        f.append(q2 / max(q4, 1e-6))
+        f.append((q1 + q2) / max(q3 + q4, 1e-6))
+        f.append(max(q1, q2, q3, q4) / max(min(q1, q2, q3, q4), 1e-6)) // Peak-to-trough band ratio
+
+        // --- 6. Statistical features (12) ---
+        let mu = beat.mean()
+        let sigma = beat.std()
+        f.append(mu)
+        f.append(sigma)
+        // Skewness
+        let skew = beat.map { pow(($0 - mu) / max(sigma, 1e-6), 3) }.reduce(0, +) / Double(N)
+        f.append(skew)
+        // Kurtosis
+        let kurt = beat.map { pow(($0 - mu) / max(sigma, 1e-6), 4) }.reduce(0, +) / Double(N) - 3.0
+        f.append(kurt)
+        // Zero-crossing rate
+        var zc = 0
+        for i in 1..<N { if (beat[i] >= mu) != (beat[i-1] >= mu) { zc += 1 } }
+        f.append(Double(zc) / Double(N))
+        // Percentiles
+        let sorted = beat.sorted()
+        f.append(sorted[N / 4])          // 25th percentile
+        f.append(sorted[N / 2])          // Median
+        f.append(sorted[3 * N / 4])      // 75th percentile
+        f.append(sorted[3*N/4] - sorted[N/4])  // IQR
+        f.append(sorted.last! - sorted.first!)  // Range
+        // Entropy (Shannon, discretised into 20 bins)
+        var entropy = 0.0
+        let binCount = 20
+        let range = (sorted.last! - sorted.first!) + 1e-10
+        var bins = Array(repeating: 0, count: binCount)
+        for v in beat { bins[min(Int((v - sorted.first!) / range * Double(binCount)), binCount - 1)] += 1 }
+        for b in bins {
+            let p = Double(b) / Double(N)
+            if p > 0 { entropy -= p * log2(p) }
+        }
+        f.append(entropy)
+        // Autocorrelation at lag 1
+        var ac = 0.0
+        for i in 1..<N { ac += (beat[i] - mu) * (beat[i-1] - mu) }
+        f.append(ac / (Double(N - 1) * max(sigma * sigma, 1e-10)))
+
+        // --- 7. Wavelet-like coefficients (64) ---
+        // Multi-resolution decomposition using Haar wavelet (simplest orthogonal basis).
+        // NASA uses more sophisticated wavelets, but Haar captures the key
+        // multi-scale morphological structure for 64 coefficients.
+        var wavelet: [Double] = []
+        var level = beat
+        for _ in 0..<6 {  // 6 levels of decomposition
+            guard level.count >= 2 else { break }
+            var approx: [Double] = []
+            var detail: [Double] = []
+            for j in stride(from: 0, to: level.count - 1, by: 2) {
+                approx.append((level[j] + level[j + 1]) / 2.0)
+                detail.append((level[j] - level[j + 1]) / 2.0)
+            }
+            // Keep first few detail coefficients from each level
+            wavelet.append(contentsOf: detail.prefix(12))
+            level = approx
+        }
+        // Pad or truncate to exactly 64
+        while wavelet.count < 64 { wavelet.append(0) }
+        f.append(contentsOf: wavelet.prefix(64))
+
+        // --- 8. Cross-segment correlations (8) ---
+        let seg1 = Array(beat[pRegionStart..<max(pRegionStart+1, pRegionEnd)])
+        let seg2 = Array(beat[qrsStart..<max(qrsStart+1, qrsEnd)])
+        let seg3 = Array(beat[tRegionStart..<max(tRegionStart+1, tRegionEnd)])
+        f.append(crossCorrelation(seg1, seg2))
+        f.append(crossCorrelation(seg2, seg3))
+        f.append(crossCorrelation(seg1, seg3))
+        f.append(crossCorrelation(preR, postR))
+        // Normalised segment energies
+        let totalSeg = max(seg1.map{$0*$0}.reduce(0,+) + seg2.map{$0*$0}.reduce(0,+) + seg3.map{$0*$0}.reduce(0,+), 1e-10)
+        f.append(seg1.map{$0*$0}.reduce(0,+) / totalSeg)
+        f.append(seg2.map{$0*$0}.reduce(0,+) / totalSeg)
+        f.append(seg3.map{$0*$0}.reduce(0,+) / totalSeg)
+        f.append(Double(N) / fs)  // Beat period
+
+        return f
+    }
+
+    private func crossCorrelation(_ a: [Double], _ b: [Double]) -> Double {
+        let n = min(a.count, b.count)
+        guard n > 0 else { return 0 }
+        let ma = a.prefix(n).reduce(0, +) / Double(n)
+        let mb = b.prefix(n).reduce(0, +) / Double(n)
+        var num = 0.0, da = 0.0, db = 0.0
+        for i in 0..<n {
+            let ai = (i < a.count ? a[i] : 0) - ma
+            let bi = (i < b.count ? b[i] : 0) - mb
+            num += ai * bi
+            da += ai * ai
+            db += bi * bi
+        }
+        return num / max(sqrt(da * db), 1e-10)
     }
     
     private func slope(_ x: [Double], start: Int, end: Int) -> Double {
@@ -478,11 +745,26 @@ final class NASAAuthEngine {
         let gmm = NASAGMM(parameters: model.gmm)
         let ll = gmm.meanLogLikelihood(dataset: z)
         
-        // Calculate confidence and quality
-        let confidence = min(1.0, max(0.0, (voteRatio + (ll + 20) / 40) / 2))
-        let qualityScore = calculateQualityScore(features: features)
-        
-        // NASA decision logic
+        // Calculate confidence using calibrated sigmoid mapping.
+        //
+        // NASA HeartBeatID uses a vote-pass ratio (acceptance gate) combined with
+        // GMM log-likelihood (statistical fit). The confidence score maps these
+        // two metrics into a [0,1] range using a calibrated formula:
+        //
+        //   confidence = sigmoid(voteRatio, center=votePassRatio)
+        //              × sigmoid(ll, center=gmmThreshold)
+        //
+        // This ensures:
+        //   - vote ratio at exactly the threshold → 0.50 from that component
+        //   - GMM LL at exactly the threshold → 0.50 from that component
+        //   - Both well above threshold → approaches 1.0
+        //   - Either below threshold → drops sharply toward 0.0
+        let voteConfidence = 1.0 / (1.0 + exp(-12.0 * (voteRatio - config.votePassRatio)))
+        let gmmConfidence  = 1.0 / (1.0 + exp(-0.3 * (ll - config.gmmThreshold)))
+        let confidence     = min(1.0, max(0.0, voteConfidence * gmmConfidence))
+        let qualityScore   = calculateQualityScore(features: features)
+
+        // NASA decision logic: dual-gate (both conditions must pass)
         let accepted = (voteRatio >= config.votePassRatio) && (ll >= config.gmmThreshold)
         
         return NASAAuthResult(

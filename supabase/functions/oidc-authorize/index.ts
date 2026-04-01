@@ -37,6 +37,8 @@ interface PendingSession {
   redirectUri: string;
   state: string | null;
   nonce: string | null;
+  codeChallenge: string | null;      // PKCE S256 challenge
+  codeChallengeMethod: string | null; // "S256" (only method supported)
   expiresAt: number;
 }
 
@@ -52,6 +54,8 @@ interface VerifiedSession {
   biometricConfidence: number;
   biometricMethod: string;
   nonce: string | null;
+  codeChallenge: string | null;      // PKCE: carried from PendingSession
+  codeChallengeMethod: string | null;
   createdAt: number;
 }
 
@@ -95,6 +99,8 @@ async function handleAuthorizationGet(url: URL): Promise<Response> {
   const redirectUri = url.searchParams.get("redirect_uri");
   const state = url.searchParams.get("state");
   const nonce = url.searchParams.get("nonce");
+  const codeChallenge = url.searchParams.get("code_challenge");
+  const codeChallengeMethod = url.searchParams.get("code_challenge_method"); // "S256" only
 
   if (!clientId || !redirectUri) {
     return jsonResponse({
@@ -103,11 +109,19 @@ async function handleAuthorizationGet(url: URL): Promise<Response> {
     }, 400);
   }
 
+  // PKCE: if code_challenge is present, method must be S256
+  if (codeChallenge && codeChallengeMethod !== "S256") {
+    return jsonResponse({
+      error: "invalid_request",
+      error_description: "Only code_challenge_method=S256 is supported",
+    }, 400);
+  }
+
   const sessionId = crypto.randomUUID();
   const expiresAt = Date.now() + SESSION_TTL_MS;
 
   // --- In-memory store (fast path) ---
-  pendingSessions.set(sessionId, { sessionId, clientId, redirectUri, state, nonce, expiresAt });
+  pendingSessions.set(sessionId, { sessionId, clientId, redirectUri, state, nonce, codeChallenge, codeChallengeMethod, expiresAt });
 
   // --- Supabase DB (durable path) ---
   if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
@@ -184,6 +198,8 @@ async function handleBiometricVerification(body: Record<string, unknown>): Promi
           redirectUri: data.redirect_uri,
           state: data.state,
           nonce: data.nonce,
+          codeChallenge: data.code_challenge ?? null,
+          codeChallengeMethod: data.code_challenge_method ?? null,
           expiresAt: new Date(data.expires_at).getTime(),
         };
       }
@@ -228,6 +244,8 @@ async function handleBiometricVerification(body: Record<string, unknown>): Promi
     biometricConfidence,
     biometricMethod: biometricMethod || "hybrid",
     nonce: sessionData.nonce,
+    codeChallenge: sessionData.codeChallenge,
+    codeChallengeMethod: sessionData.codeChallengeMethod,
     createdAt: now,
   };
 

@@ -137,6 +137,10 @@ class WatchConnectivityService: NSObject, ObservableObject {
     @Published private(set) var liveBiometricAuthenticated: Bool = false
     /// Timestamp of last biometric data update
     @Published private(set) var liveBiometricTimestamp: Date?
+    /// Recent beat intervals (RR intervals in seconds) from Watch PPG sensor
+    @Published private(set) var liveBeatIntervals: [Double] = []
+    /// Recent heart rate samples (BPM) from Watch PPG sensor
+    @Published private(set) var liveRecentHeartRates: [Double] = []
     /// Timestamp of last heartbeat received from Watch
     @Published private(set) var lastWatchHeartbeat: Date?
 
@@ -1365,6 +1369,15 @@ extension WatchConnectivityService: WCSessionDelegate {
         self.liveBiometricUserName = userName
         self.liveBiometricAuthenticated = authenticated
         self.liveBiometricTimestamp = Date()
+
+        // Store real beat intervals and heart rates from Watch for
+        // independent iOS-side HRV verification.
+        if let intervals = message["beat_intervals"] as? [Double], !intervals.isEmpty {
+            self.liveBeatIntervals = intervals
+        }
+        if let hrs = message["recent_heart_rates"] as? [Double], !hrs.isEmpty {
+            self.liveRecentHeartRates = hrs
+        }
 
         // Also update heart rate if provided
         if heartRate > 0 {

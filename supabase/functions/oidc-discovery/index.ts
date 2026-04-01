@@ -58,6 +58,7 @@ serve(async (req: Request) => {
     ],
     scopes_supported: ["openid", "profile", "email", "cardiacid.verify"],
     grant_types_supported: ["authorization_code", "urn:ietf:params:oauth:grant-type:device_code"],
+    code_challenge_methods_supported: ["S256"],
 
     // CardiacID-specific metadata
     cardiacid_version: "0.8",

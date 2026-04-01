@@ -6,17 +6,18 @@ struct SettingsView: View {
     @EnvironmentObject private var watchConnectivity: WatchConnectivityService
     @EnvironmentObject private var authViewModel: AuthViewModel
     
-    @State private var continuousAuth = true
-    @State private var enhancedSecurity = false
-    @State private var backupAuth = true
-    @State private var selectedSensitivity = 1
-    @State private var dataRetentionDays = 30
+    @AppStorage("setting_continuousAuth") private var continuousAuth = true
+    @AppStorage("setting_enhancedSecurity") private var enhancedSecurity = false
+    @AppStorage("setting_backupAuth") private var backupAuth = true
+    @AppStorage("setting_sensitivity") private var selectedSensitivity = 1
+    @AppStorage("setting_dataRetentionDays") private var dataRetentionDays = 30
     @State private var showingConfirmLogout = false
     @State private var showingMenu = false
     @State private var isProcessing = false
-    
+    @State private var showClearConfirm = false
+    @State private var clearResult: String?
+
     private let colors = HeartIDColors()
-    private var cancellables = Set<AnyCancellable>()
     
     var body: some View {
         ScrollView {
@@ -118,13 +119,7 @@ struct SettingsView: View {
                     
                     Divider().background(colors.text.opacity(0.1))
                     
-                    Button(action: {
-                        // Implement clear data functionality
-                        isProcessing = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            isProcessing = false
-                        }
-                    }) {
+                    Button(action: { showClearConfirm = true }) {
                         HStack {
                             if isProcessing {
                                 ProgressView()
@@ -137,6 +132,13 @@ struct SettingsView: View {
                                 .foregroundColor(colors.error)
                             Spacer()
                         }
+                    }
+                    .disabled(isProcessing)
+
+                    if let result = clearResult {
+                        Text(result)
+                            .font(.caption)
+                            .foregroundColor(colors.success)
                     }
                     
                     Divider().background(colors.text.opacity(0.1))
@@ -207,20 +209,31 @@ struct SettingsView: View {
                 .environmentObject(authViewModel)
                 .environmentObject(authManager)
         }
-        .alert(isPresented: $showingConfirmLogout) {
-            Alert(
-                title: Text("Sign Out"),
-                message: Text("Are you sure you want to sign out?"),
-                primaryButton: .destructive(Text("Sign Out")) {
-                    authViewModel.signOut()
-                },
-                secondaryButton: .cancel()
-            )
+        .alert("Sign Out", isPresented: $showingConfirmLogout) {
+            Button("Sign Out", role: .destructive) { authViewModel.signOut() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to sign out?")
+        }
+        .alert("Clear History", isPresented: $showClearConfirm) {
+            Button("Clear All", role: .destructive) { performClearHistory() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will clear your local audit log. Cloud events are retained per your data retention policy.")
         }
     }
     
+    // MARK: - Actions
+
+    private func performClearHistory() {
+        isProcessing = true
+        AuditLogger.shared.clear()
+        clearResult = "Local audit log cleared."
+        isProcessing = false
+    }
+
     // MARK: - Helper Views
-    
+
     private func settingsSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title)

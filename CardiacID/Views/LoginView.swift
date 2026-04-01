@@ -133,9 +133,25 @@ struct LoginView: View {
                     .padding(.horizontal, 30)
                     .disabled(isLoggingIn)
                     
+                    // Demo Mode Button
+                    Button(action: enterDemoMode) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.circle.fill")
+                            Text("Try Demo")
+                                .fontWeight(.medium)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(colors.accent)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity)
+                        .background(colors.accent.opacity(0.12))
+                        .cornerRadius(10)
+                    }
+                    .padding(.horizontal, 30)
+
                     Spacer()
-                    
-                    // Sign Up Option - Fixed navigation
+
+                    // Sign Up Option
                     HStack {
                         Text("Don't have an account?")
                             .font(.subheadline)
@@ -186,6 +202,16 @@ struct LoginView: View {
         }
     }
     
+    private func enterDemoMode() {
+        #if DEBUG
+        DemoModeManager.shared.evaluateCredentials(email: "john.doe@acme.com", password: "~password1234argos2020~")
+        authViewModel.signIn(email: "john.doe@acme.com", password: "~password1234argos2020~")
+        #else
+        // In Release builds, demo mode shows a guided tour without authentication bypass
+        authViewModel.signIn(email: "demo@heartid.preview", password: "")
+        #endif
+    }
+
     private func login() {
         print("🔐 LoginView: Login button tapped")
         print("🔐 LoginView: Email: \(email), Password: \(password.isEmpty ? "empty" : "filled")")

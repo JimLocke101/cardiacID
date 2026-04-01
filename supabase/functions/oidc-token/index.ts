@@ -77,9 +77,10 @@ serve(async (req: Request) => {
     }
 
     const grantType   = params.get("grant_type");
-    const code        = params.get("code");
-    const clientId    = params.get("client_id");
-    const redirectUri = params.get("redirect_uri"); // validated against stored entry below
+    const code         = params.get("code");
+    const clientId     = params.get("client_id");
+    const redirectUri  = params.get("redirect_uri"); // validated against stored entry below
+    const codeVerifier = params.get("code_verifier"); // PKCE S256 verifier
 
     if (grantType !== "authorization_code") {
       return jsonResponse({
@@ -175,6 +176,31 @@ serve(async (req: Request) => {
         error: "invalid_grant",
         error_description: "Redirect URI mismatch",
       }, 400);
+    }
+
+    // -----------------------------------------------------------------------
+    // PKCE validation — if the authorization request included a code_challenge,
+    // the token request MUST include a matching code_verifier.
+    // -----------------------------------------------------------------------
+    const storedChallenge = (codeEntry as any).codeChallenge ?? null;
+
+    if (storedChallenge) {
+      if (!codeVerifier) {
+        return jsonResponse({
+          error: "invalid_grant",
+          error_description: "PKCE code_verifier required but missing",
+        }, 400);
+      }
+      // S256: BASE64URL(SHA256(code_verifier)) must equal stored code_challenge
+      const encoder = new TextEncoder();
+      const digest  = await crypto.subtle.digest("SHA-256", encoder.encode(codeVerifier));
+      const computed = base64urlEncode(new Uint8Array(digest));
+      if (computed !== storedChallenge) {
+        return jsonResponse({
+          error: "invalid_grant",
+          error_description: "PKCE code_verifier does not match code_challenge",
+        }, 403);
+      }
     }
 
     // -----------------------------------------------------------------------

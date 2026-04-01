@@ -201,7 +201,9 @@ class HeartIDService: ObservableObject {
         lastECGConfidence = ecgConfidence
         lastECGTimestamp = lastSample.ecg.startDate
         currentConfidence = ecgConfidence
-        currentPPGConfidence = 0.88
+        // PPG confidence starts at 0.0 — will be computed from real PPG data
+        // on the first background verification cycle (not hardcoded).
+        currentPPGConfidence = 0.0
 
         // Set authentication state
         if currentConfidence >= thresholds.fullAccess {
@@ -247,17 +249,66 @@ class HeartIDService: ObservableObject {
         // Average ECG features from multiple samples for robustness
         let ecgFeatures = averageECGFeatures(samples.map { $0.features })
 
-        // Create PPG baseline
+        // Build PPG baseline from REAL HealthKit data collected during enrollment.
+        // During the ~5+ minutes of ECG enrollment, the PPG sensor has been
+        // continuously collecting heart rate samples and beat intervals.
+        let enrolledHRs = healthKit.getRecentHeartRates()
+        let enrolledIntervals = healthKit.getRecentBeatIntervals()
+
+        // Resting heart rate: median of collected samples (robust to outliers)
+        let sortedHRs = enrolledHRs.sorted()
+        let restingHR = sortedHRs.isEmpty ? 70.0 : sortedHRs[sortedHRs.count / 2]
+
+        // Heart rate range: 2-sigma envelope around the median
+        let hrMean = enrolledHRs.isEmpty ? 70.0 : enrolledHRs.reduce(0, +) / Double(enrolledHRs.count)
+        let hrVariance = enrolledHRs.isEmpty ? 100.0 : enrolledHRs.map { pow($0 - hrMean, 2) }.reduce(0, +) / max(Double(enrolledHRs.count - 1), 1)
+        let hrStdDev = sqrt(hrVariance)
+        let hrLow = max(40, hrMean - 2 * hrStdDev)
+        let hrHigh = min(200, hrMean + 2 * hrStdDev)
+
+        // HRV metrics from real beat intervals
+        let intervalMean = enrolledIntervals.isEmpty ? 0.08 : enrolledIntervals.reduce(0, +) / Double(enrolledIntervals.count)
+        let intervalVariance = enrolledIntervals.isEmpty ? 0.0004 : enrolledIntervals.map { pow($0 - intervalMean, 2) }.reduce(0, +) / max(Double(enrolledIntervals.count - 1), 1)
+        let intervalStdDev = sqrt(intervalVariance)
+
+        // RMSSD from real beat intervals
+        var rmssdSum = 0.0
+        if enrolledIntervals.count >= 2 {
+            for i in 1..<enrolledIntervals.count {
+                let diff = enrolledIntervals[i] - enrolledIntervals[i - 1]
+                rmssdSum += diff * diff
+            }
+        }
+        let rmssd = enrolledIntervals.count >= 2 ? sqrt(rmssdSum / Double(enrolledIntervals.count - 1)) : 0.035
+
+        // Rhythm pattern: normalised recent beat intervals
+        let rhythmPattern: [Double]
+        if enrolledIntervals.count >= 10 {
+            let last10 = Array(enrolledIntervals.suffix(10))
+            let rpMax = last10.max() ?? 1.0
+            rhythmPattern = last10.map { $0 / max(rpMax, 0.001) }
+        } else {
+            rhythmPattern = Array(repeating: 0.8, count: 10)
+        }
+
+        // Rhythm stability from real data
+        let rhythmStability = enrolledIntervals.count >= 5 ? max(0, 1.0 - intervalStdDev / max(intervalMean, 0.001)) : 0.85
+
         let ppgBaseline = PPGBaseline(
-            restingHeartRate: 70.0,
-            heartRateRange: 60.0...100.0,
-            hrvMean: 0.08,
-            hrvStdDev: 0.02,
-            rhythmPattern: Array(repeating: 0.8, count: 10),
-            rhythmStability: 0.85,
+            restingHeartRate: restingHR,
+            heartRateRange: hrLow...hrHigh,
+            hrvMean: intervalMean,
+            hrvStdDev: intervalStdDev,
+            hrvRMSSD: rmssd,
+            hrvSDNN: intervalStdDev,
+            rhythmPattern: rhythmPattern,
+            rhythmStability: rhythmStability,
+            heartRateVariability: hrStdDev,
             respiratoryPattern: Array(repeating: 0.0, count: 10),
             movementBaseline: 0.5
         )
+
+        print("📊 PPG baseline from real data: HR=\(Int(restingHR)) bpm (\(Int(hrLow))-\(Int(hrHigh))), RMSSD=\(String(format: "%.4f", rmssd)), HRV stddev=\(String(format: "%.4f", intervalStdDev)), \(enrolledIntervals.count) intervals, \(enrolledHRs.count) HR samples")
 
         let qualityScore = samples.map { $0.features.signalNoiseRatio }.reduce(0, +) / Double(samples.count) / 50.0
 
@@ -708,14 +759,17 @@ class HeartIDService: ObservableObject {
         ]
         watchConnectivity.updateCachedBiometricData(cachedData)
 
-        // Send biometric data to iOS
+        // Send biometric data to iOS — includes real beat intervals and HR samples
+        // so the iPhone can perform independent HRV verification.
         watchConnectivity.sendBiometricDataToiOS(
             confidence: confidence,
             heartRate: heartRate,
             method: method,
             isActiveMonitoring: isActive,
             userName: userName,
-            authenticated: authenticated
+            authenticated: authenticated,
+            beatIntervals: healthKit.getRecentBeatIntervals(),
+            recentHeartRates: healthKit.getRecentHeartRates()
         )
     }
 

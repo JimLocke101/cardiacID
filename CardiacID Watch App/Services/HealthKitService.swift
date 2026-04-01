@@ -170,30 +170,52 @@ class HealthKitService: ObservableObject {
     }
 
     private func processHeartRateSamples(_ samples: [HKQuantitySample]) async {
-        guard let latestSample = samples.last else { return }
+        guard !samples.isEmpty else { return }
 
-        let heartRate = latestSample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
-        let currentTime = Date()
+        // Process ALL samples in the batch — each has its own timestamp.
+        // HKAnchoredObjectQuery delivers batches of samples; processing each
+        // gives us real inter-sample timing for beat interval calculation.
+        for sample in samples {
+            let heartRate = sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+            let sampleTime = sample.startDate
 
-        currentHeartRate = heartRate
+            currentHeartRate = heartRate
 
-        // Calculate beat interval (RR interval) from consecutive heart rate samples
-        if let lastTime = lastBeatTimestamp, heartRate > 0 {
-            let beatInterval = 60.0 / heartRate // Convert bpm to interval in seconds
-            recentBeatIntervals.append(beatInterval)
+            // Calculate beat intervals from actual HealthKit sample timestamps.
+            //
+            // Two sources of RR interval estimation:
+            //   1. Real inter-sample time delta (when samples are < 10s apart)
+            //   2. Instantaneous RR = 60/HR (when samples are sparse)
+            //
+            // Source 1 is preferred because it captures actual timing jitter
+            // from the PPG sensor, not a smoothed HR value.
+            if let lastTime = lastBeatTimestamp, heartRate > 0 {
+                let timeDelta = sampleTime.timeIntervalSince(lastTime)
 
-            // Keep only recent intervals for HRV analysis
-            if recentBeatIntervals.count > maxBeatIntervalsToStore {
-                recentBeatIntervals.removeFirst()
+                if timeDelta > 0.3 && timeDelta < 10.0 {
+                    // Real inter-sample interval (samples < 10s apart)
+                    // Estimate number of beats in the interval
+                    let beatsInInterval = max(1.0, (heartRate / 60.0) * timeDelta)
+                    let estimatedRR = timeDelta / beatsInInterval
+                    recentBeatIntervals.append(estimatedRR)
+                } else if heartRate > 0 {
+                    // Sparse samples — derive instantaneous RR from HR
+                    recentBeatIntervals.append(60.0 / heartRate)
+                }
+
+                // Keep sliding window for HRV analysis
+                while recentBeatIntervals.count > maxBeatIntervalsToStore {
+                    recentBeatIntervals.removeFirst()
+                }
             }
-        }
 
-        lastBeatTimestamp = currentTime
+            lastBeatTimestamp = sampleTime
 
-        // Store recent heart rates for trend analysis
-        recentHeartRates.append(heartRate)
-        if recentHeartRates.count > maxBeatIntervalsToStore {
-            recentHeartRates.removeFirst()
+            // Store recent heart rates for rhythm analysis
+            recentHeartRates.append(heartRate)
+            while recentHeartRates.count > maxBeatIntervalsToStore {
+                recentHeartRates.removeFirst()
+            }
         }
 
         // Update wrist detection timestamp (watch is on wrist if receiving HR data)
@@ -203,9 +225,7 @@ class HealthKitService: ObservableObject {
             print("⌚ Watch detected on wrist")
         }
 
-        print("💓 Heart Rate: \(Int(heartRate)) bpm (PPG sensor, \(recentBeatIntervals.count) intervals stored)")
-
-        // Note: PPG confidence calculation handled by HeartIDService via BiometricMatchingService
+        print("💓 Heart Rate: \(Int(currentHeartRate)) bpm (PPG sensor, \(recentBeatIntervals.count) intervals, \(recentHeartRates.count) HR samples)")
     }
 
     /// Get recent beat intervals for HRV analysis

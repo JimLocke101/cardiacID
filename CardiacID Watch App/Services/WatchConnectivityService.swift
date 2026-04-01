@@ -320,21 +320,28 @@ class WatchConnectivityService: NSObject, ObservableObject {
         method: String,
         isActiveMonitoring: Bool,
         userName: String,
-        authenticated: Bool
+        authenticated: Bool,
+        beatIntervals: [Double] = [],
+        recentHeartRates: [Double] = []
     ) {
         guard let session = session, session.activationState == .activated else {
             print("⌚️ Watch: Session not activated, skipping biometric data send")
             return
         }
 
+        // Include beat intervals and recent heart rates so the iOS app
+        // can perform independent HRV verification rather than trusting
+        // only the Watch's reported confidence score.
         let message: [String: Any] = [
             "message_type": "biometric_data_response",
             "confidence": confidence,
             "heart_rate": heartRate,
-            "method": method,  // "ppg" or "ecg"
+            "method": method,
             "is_active_monitoring": isActiveMonitoring,
             "user_name": userName,
             "authenticated": authenticated,
+            "beat_intervals": Array(beatIntervals.suffix(20)),
+            "recent_heart_rates": Array(recentHeartRates.suffix(10)),
             "timestamp": Date().timeIntervalSince1970
         ]
 
