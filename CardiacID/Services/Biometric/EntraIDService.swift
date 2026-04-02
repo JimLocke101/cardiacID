@@ -297,6 +297,8 @@ private class RealEntraIDServiceImpl: EntraIDServiceProtocol {
     }
 
     func signOut() async throws {
+        // Sign out from real MSAL session
+        try? await EntraIDAuthClient.shared.signOut()
         currentUser = nil
         isAuthenticated = false
         errorMessage = nil
@@ -322,32 +324,32 @@ private class RealEntraIDServiceImpl: EntraIDServiceProtocol {
     }
 
     // MARK: - Private Methods
+    @MainActor
     private func performRealAuthentication() async throws -> EntraIDUserModel {
-        // TODO: Replace with real MSAL authentication via EntraIDAuthClient.shared
-        // This stub exists because the real MSAL flow requires a UIViewController
-        // presentation context that is not available in this service layer.
-        // Phase 1 integration: wire EntraIDAuthClient.signIn() here.
+        // Wire to the real MSAL-backed EntraIDAuthClient.
+        // This calls Microsoft's interactive sign-in (browser sheet),
+        // acquires a token, queries Microsoft Graph, and returns a user.
+        let authClient = EntraIDAuthClient.shared
 
-        // SECURITY: In production, this must call the real MSAL SDK.
-        // The stub below prevents a crash but does NOT authenticate.
-        #if DEBUG
-        // Debug builds: return a clearly-marked test user for UI development
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-        return EntraIDUserModel(
-            id: "debug-stub-user",
-            displayName: "Debug User (NOT AUTHENTICATED)",
-            email: "debug.stub@not-real.local",
-            jobTitle: "Debug Stub",
-            department: "Debug",
-            permissions: [],
-            groups: [],
-            tenantId: "debug-tenant",
-            userPrincipalName: "debug.stub@not-real.local"
-        )
-        #else
-        // Release builds: fail immediately — no silent stub auth
-        throw EntraIDServiceError.notAuthenticated
-        #endif
+        do {
+            let entraUser = try await authClient.signIn()
+
+            // Map EntraIDUser (from EntraIDAuthClient) to EntraIDUserModel (for EntraIDService)
+            return EntraIDUserModel(
+                id: entraUser.id,
+                displayName: entraUser.displayName,
+                email: entraUser.email,
+                jobTitle: entraUser.jobTitle,
+                department: entraUser.department,
+                permissions: entraUser.permissions,
+                groups: entraUser.groups,
+                tenantId: entraUser.tenantId ?? MSALConfiguration.tenantID,
+                userPrincipalName: entraUser.userPrincipalName ?? entraUser.email
+            )
+        } catch {
+            print("❌ MSAL authentication failed: \(error.localizedDescription)")
+            throw EntraIDServiceError.notAuthenticated
+        }
     }
 }
 

@@ -682,18 +682,27 @@ extension WatchConnectivityService: WCSessionDelegate {
             if let error = error {
                 print("Watch session activation error: \(error.localizedDescription)")
                 self.errorSubject.send("Watch connection error: \(error.localizedDescription)")
+                AuditLogger.shared.logOperational(action: "watch.activation_error", outcome: "error",
+                                                   reasonCode: error.localizedDescription)
             } else if activationState == .activated {
-                // CRITICAL FIX: When session activates, immediately check connection state
-                // This helps establish reachability right after activation
                 self.updateConnectionState()
                 print("📱 Watch session activated - checking connection state")
+                AuditLogger.shared.logOperational(action: "watch.session_activated", outcome: "success",
+                                                   reasonCode: "paired=\(session.isPaired) installed=\(session.isWatchAppInstalled)")
             }
         }
     }
 
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
         Task { @MainActor in
+            let wasReachable = self.isReachable
             self.isReachable = session.isReachable
+            if wasReachable != session.isReachable {
+                AuditLogger.shared.logOperational(
+                    action: session.isReachable ? "watch.became_reachable" : "watch.became_unreachable",
+                    outcome: session.isReachable ? "connected" : "disconnected"
+                )
+            }
         }
     }
 
@@ -701,21 +710,32 @@ extension WatchConnectivityService: WCSessionDelegate {
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
         Task { @MainActor in
             self.isActivated = false
+            AuditLogger.shared.logOperational(action: "watch.session_inactive", outcome: "inactive")
         }
     }
 
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
         Task { @MainActor in
             self.isActivated = false
+            AuditLogger.shared.logOperational(action: "watch.session_deactivated", outcome: "deactivated")
         }
-        // Reactivate the session
         WCSession.default.activate()
     }
 
     nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
         Task { @MainActor in
+            let wasPaired = self.isPaired
+            let wasInstalled = self.isInstalled
             self.isPaired = session.isPaired
             self.isInstalled = session.isWatchAppInstalled
+
+            if wasPaired != session.isPaired || wasInstalled != session.isWatchAppInstalled {
+                AuditLogger.shared.logOperational(
+                    action: "watch.state_changed",
+                    outcome: "paired=\(session.isPaired) installed=\(session.isWatchAppInstalled)",
+                    reasonCode: "was: paired=\(wasPaired) installed=\(wasInstalled)"
+                )
+            }
         }
     }
     #endif

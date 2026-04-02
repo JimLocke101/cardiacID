@@ -203,13 +203,7 @@ struct LoginView: View {
     }
     
     private func enterDemoMode() {
-        #if DEBUG
-        DemoModeManager.shared.evaluateCredentials(email: "john.doe@acme.com", password: "~password1234argos2020~")
-        authViewModel.signIn(email: "john.doe@acme.com", password: "~password1234argos2020~")
-        #else
-        // In Release builds, demo mode shows a guided tour without authentication bypass
-        authViewModel.signIn(email: "demo@heartid.preview", password: "")
-        #endif
+        authViewModel.signInDemo()
     }
 
     private func login() {
