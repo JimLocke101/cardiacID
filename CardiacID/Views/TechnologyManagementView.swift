@@ -1,8 +1,8 @@
 import SwiftUI
-import SwiftUI
 import Combine
 import CoreBluetooth
 import CoreNFC
+import LocalAuthentication
 
 /// Comprehensive technology management screen for EntraID, Active Directory, NFC, Bluetooth, and door locks
 struct TechnologyManagementView: View {
@@ -243,7 +243,8 @@ struct TabContentView: View {
                 case .security:
                     SecurityManagementView(
                         passwordlessService: passwordlessService,
-                        entraIDService: entraIDService
+                        entraIDService: entraIDService,
+                        bluetoothService: bluetoothService
                     )
                 }
             }
@@ -334,47 +335,221 @@ struct BluetoothManagementView: View {
     @ObservedObject var service: BluetoothDoorLockService
     let onDeviceSelected: (ManagedDevice) -> Void
     private let colors = HeartIDColors()
-    
+
     var body: some View {
-        VStack(spacing: 20) {
-            // Bluetooth Status
-            ConnectionStatusCard(
-                title: "Bluetooth",
-                isConnected: service.isBluetoothAvailable,
-                statusText: service.isBluetoothAvailable ? "Available" : "Not Available",
-                userInfo: nil
-            )
-            
+        VStack(spacing: 16) {
+            // Bluetooth Status Card
+            HStack(spacing: 12) {
+                Image(systemName: "bluetooth")
+                    .font(.title2)
+                    .foregroundColor(service.isBluetoothAvailable ? colors.accent : colors.error)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Bluetooth")
+                        .font(.headline).foregroundColor(colors.text)
+                    Text(service.isBluetoothAvailable ? "Available" : "Bluetooth is off or unavailable")
+                        .font(.caption).foregroundColor(colors.secondary)
+                }
+                Spacer()
+                Circle()
+                    .fill(service.isBluetoothAvailable ? colors.success : colors.error)
+                    .frame(width: 10, height: 10)
+            }
+            .padding()
+            .background(colors.surface)
+            .cornerRadius(12)
+
             // Scan Controls
-            VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Button(action: {
+                    if service.isScanning { service.stopScanning() }
+                    else { service.startScanning() }
+                }) {
+                    HStack(spacing: 8) {
+                        if service.isScanning {
+                            ProgressView().progressViewStyle(.circular).scaleEffect(0.7).tint(.white)
+                        } else {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                        }
+                        Text(service.isScanning ? "Scanning..." : "Scan for Devices")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(service.isScanning ? colors.warning : colors.accent)
+                    .foregroundColor(service.isScanning ? colors.primary : .white)
+                    .cornerRadius(10)
+                }
+                .disabled(!service.isBluetoothAvailable)
+
                 if service.isScanning {
-                    Button("Stop Scanning") {
-                        service.stopScanning()
+                    Button(action: { service.stopScanning() }) {
+                        Image(systemName: "stop.fill")
+                            .padding(12)
+                            .background(colors.error)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
                     }
-                    .buttonStyle(SecondaryButtonStyle())
-                } else {
-                    Button("Start Scanning") {
-                        service.startScanning()
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
                 }
             }
-            
+
+            // Device count summary
+            if service.isScanning || !service.discoveredLocks.isEmpty || !service.connectedLocks.isEmpty {
+                HStack {
+                    Label("\(service.discoveredLocks.count) found", systemImage: "magnifyingglass")
+                        .font(.caption).foregroundColor(colors.secondary)
+                    Spacer()
+                    Label("\(service.connectedLocks.count) connected", systemImage: "link")
+                        .font(.caption).foregroundColor(service.connectedLocks.isEmpty ? colors.secondary : colors.success)
+                }
+                .padding(.horizontal, 4)
+            }
+
+            // Connected Devices (shown first — priority)
+            if !service.connectedLocks.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Connected", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline).fontWeight(.semibold).foregroundColor(colors.success)
+
+                    ForEach(service.connectedLocks) { device in
+                        BluetoothDeviceRow(device: device, colors: colors, isConnected: true) {
+                            let managed = ManagedDevice(name: device.name, type: .bluetoothDoorLock,
+                                                        status: .connected, bluetoothLock: device)
+                            onDeviceSelected(managed)
+                        }
+                    }
+                }
+                .padding()
+                .background(colors.surface)
+                .cornerRadius(12)
+            }
+
             // Discovered Devices
             if !service.discoveredLocks.isEmpty {
-                DiscoveredDevicesList(
-                    devices: service.discoveredLocks,
-                    onDeviceSelected: onDeviceSelected
-                )
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Discovered Devices", systemImage: "antenna.radiowaves.left.and.right")
+                        .font(.subheadline).fontWeight(.semibold).foregroundColor(colors.text)
+
+                    ForEach(service.discoveredLocks) { device in
+                        BluetoothDeviceRow(device: device, colors: colors, isConnected: false) {
+                            let managed = ManagedDevice(name: device.name, type: .bluetoothDoorLock,
+                                                        status: .discovered, bluetoothLock: device)
+                            onDeviceSelected(managed)
+                        }
+                    }
+                }
+                .padding()
+                .background(colors.surface)
+                .cornerRadius(12)
             }
-            
-            // Connected Devices
-            if !service.connectedLocks.isEmpty {
-                DiscoveredDevicesList(
-                    devices: service.connectedLocks,
-                    onDeviceSelected: onDeviceSelected
-                )
+
+            // Empty state when not scanning and no devices
+            if !service.isScanning && service.discoveredLocks.isEmpty && service.connectedLocks.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "bluetooth")
+                        .font(.system(size: 40))
+                        .foregroundColor(colors.secondary)
+                    Text("No devices found")
+                        .font(.subheadline).foregroundColor(colors.secondary)
+                    Text("Tap \"Scan for Devices\" to discover nearby Bluetooth devices.")
+                        .font(.caption).foregroundColor(colors.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
             }
+        }
+    }
+}
+
+// MARK: - Bluetooth Device Row
+
+private struct BluetoothDeviceRow: View {
+    let device: BluetoothDoorLock
+    let colors: HeartIDColors
+    let isConnected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Bluetooth icon with signal indicator
+                ZStack {
+                    Image(systemName: "bluetooth")
+                        .font(.title3)
+                        .foregroundColor(isConnected ? colors.success : colors.accent)
+                }
+                .frame(width: 36, height: 36)
+                .background((isConnected ? colors.success : colors.accent).opacity(0.15))
+                .cornerRadius(8)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(device.name)
+                        .font(.subheadline).fontWeight(.medium)
+                        .foregroundColor(colors.text)
+                    HStack(spacing: 8) {
+                        // Signal strength
+                        signalBars(rssi: device.rssi)
+                        Text(signalLabel(rssi: device.rssi))
+                            .font(.caption2).foregroundColor(colors.secondary)
+                        if isConnected {
+                            Text("Connected")
+                                .font(.caption2).fontWeight(.semibold)
+                                .foregroundColor(colors.success)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // Signal strength indicator
+                Text("\(device.rssi) dBm")
+                    .font(.caption2)
+                    .foregroundColor(colors.secondary)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundColor(colors.secondary)
+            }
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func signalBars(rssi: Int) -> some View {
+        HStack(spacing: 1) {
+            ForEach(0..<4, id: \.self) { bar in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(bar < signalLevel(rssi: rssi) ? colors.accent : colors.secondary.opacity(0.3))
+                    .frame(width: 3, height: CGFloat(4 + bar * 3))
+            }
+        }
+    }
+
+    private func signalLevel(rssi: Int) -> Int {
+        switch rssi {
+        case -50...0:    return 4  // Excellent
+        case -65...(-51): return 3  // Good
+        case -80...(-66): return 2  // Fair
+        case -95...(-81): return 1  // Weak
+        default:          return 0  // No signal
+        }
+    }
+
+    private func signalLabel(rssi: Int) -> String {
+        switch rssi {
+        case -50...0:    return "Strong"
+        case -65...(-51): return "Good"
+        case -80...(-66): return "Fair"
+        default:          return "Weak"
+        }
+    }
+
+    private func batteryIcon(level: Int) -> String {
+        switch level {
+        case 76...100: return "battery.100"
+        case 51...75:  return "battery.75"
+        case 26...50:  return "battery.50"
+        case 1...25:   return "battery.25"
+        default:       return "battery.0"
         }
     }
 }
@@ -527,6 +702,7 @@ struct DeviceManagementOverviewView: View {
 struct SecurityManagementView: View {
     @ObservedObject var passwordlessService: PasswordlessAuthService
     @ObservedObject var entraIDService: EntraIDService
+    @ObservedObject var bluetoothService: BluetoothDoorLockService
     private let colors = HeartIDColors()
     
     var body: some View {
@@ -558,7 +734,8 @@ struct SecurityManagementView: View {
             // Security Features
             SecurityFeaturesList(
                 passwordlessService: passwordlessService,
-                entraIDService: entraIDService
+                entraIDService: entraIDService,
+                bluetoothService: bluetoothService
             )
         }
     }
@@ -1002,36 +1179,63 @@ struct SecurityStatusItem: View {
 struct SecurityFeaturesList: View {
     @ObservedObject var passwordlessService: PasswordlessAuthService
     @ObservedObject var entraIDService: EntraIDService
+    @ObservedObject var bluetoothService: BluetoothDoorLockService
+    @StateObject private var watchConnectivity = WatchConnectivityService.shared
     private let colors = HeartIDColors()
-    
+
+    /// Checkmarks indicate whether each security feature is CURRENTLY ACTIVE:
+    ///   - Green checkmark = available and operational right now
+    ///   - Red X = unavailable, not configured, or not connected
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Security Features")
-                .font(.headline)
-            
+            HStack {
+                Text("Security Features")
+                    .font(.headline).foregroundColor(colors.text)
+                Spacer()
+                Text("Active Status")
+                    .font(.caption2).foregroundColor(colors.secondary)
+            }
+
             VStack(spacing: 8) {
                 SecurityFeatureRow(
                     title: "Face ID / Touch ID",
-                    isEnabled: true, // Placeholder
-                    icon: "faceid"
+                    isEnabled: isBiometricAvailable(),
+                    icon: "faceid",
+                    detail: isBiometricAvailable() ? "Device biometric ready" : "Not available"
                 )
-                
+
                 SecurityFeatureRow(
                     title: "Heart Pattern Auth",
-                    isEnabled: true, // Placeholder
-                    icon: "heart.fill"
+                    isEnabled: watchConnectivity.liveBiometricConfidence > 0,
+                    icon: "heart.fill",
+                    detail: watchConnectivity.liveBiometricConfidence > 0
+                        ? "\(Int(watchConnectivity.liveBiometricConfidence * 100))% confidence"
+                        : "Watch not connected"
                 )
-                
+
                 SecurityFeatureRow(
                     title: "NFC Authentication",
-                    isEnabled: true, // Placeholder
-                    icon: "wave.3.right"
+                    isEnabled: NFCNDEFReaderSession.readingAvailable,
+                    icon: "wave.3.right",
+                    detail: NFCNDEFReaderSession.readingAvailable ? "Ready" : "Not available on this device"
                 )
-                
+
                 SecurityFeatureRow(
                     title: "Bluetooth Security",
-                    isEnabled: true, // Placeholder
-                    icon: "bluetooth"
+                    isEnabled: bluetoothService.isBluetoothAvailable,
+                    icon: "bluetooth",
+                    detail: bluetoothService.isBluetoothAvailable
+                        ? "\(bluetoothService.connectedLocks.count) device(s) connected"
+                        : "Bluetooth off or unavailable"
+                )
+
+                SecurityFeatureRow(
+                    title: "Entra ID SSO",
+                    isEnabled: entraIDService.isAuthenticated,
+                    icon: "building.2.crop.circle",
+                    detail: entraIDService.isAuthenticated
+                        ? (entraIDService.currentUser?.displayName ?? "Connected")
+                        : "Not signed in"
                 )
             }
         }
@@ -1039,26 +1243,41 @@ struct SecurityFeaturesList: View {
         .background(colors.surface)
         .cornerRadius(12)
     }
+
+    private func isBiometricAvailable() -> Bool {
+        let context = LAContext()
+        var error: NSError?
+        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    }
 }
 
 struct SecurityFeatureRow: View {
     let title: String
     let isEnabled: Bool
     let icon: String
+    var detail: String = ""
     private let colors = HeartIDColors()
-    
+
     var body: some View {
-        HStack {
+        HStack(spacing: 10) {
             Image(systemName: icon)
-                .foregroundColor(colors.accent)
-                .frame(width: 20)
-            
-            Text(title)
-                .font(.subheadline)
-                .foregroundColor(colors.text)
-            
+                .font(.body)
+                .foregroundColor(isEnabled ? colors.accent : colors.secondary)
+                .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundColor(colors.text)
+                if !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption2)
+                        .foregroundColor(colors.secondary)
+                }
+            }
+
             Spacer()
-            
+
             Image(systemName: isEnabled ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundColor(isEnabled ? colors.success : colors.error)
         }
