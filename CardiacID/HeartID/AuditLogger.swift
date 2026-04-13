@@ -68,6 +68,14 @@ final class AuditLogger: Sendable {
         queue.sync { _securityEvents }
     }
 
+    /// Returns all operational log entries for the Activity Log.
+    /// Each entry contains action, outcome, score, reasonCode, and timestamp.
+    func recentOperationalEntries() -> [(timestamp: Date, action: String, outcome: String, score: Double?, reasonCode: String?)] {
+        queue.sync {
+            _operationalEntries.map { ($0.timestamp, $0.action, $0.outcome, $0.score, $0.reasonCode) }
+        }
+    }
+
     func recentOperationalCount() -> Int {
         queue.sync { _operationalEntries.count }
     }

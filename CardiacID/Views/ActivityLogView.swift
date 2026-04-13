@@ -47,17 +47,17 @@ class ActivityViewModel: ObservableObject {
 
         var combined: [ActivityEvent] = []
 
-        // 1. Supabase auth_events (persistent)
+        // 1. Supabase auth_events (persistent cloud — only works when signed in)
         do {
             let dbEvents = try await supabaseClient.getRecentAuthEvents(limit: 50)
             combined.append(contentsOf: dbEvents.compactMap { mapAuthEvent($0) })
         } catch {
-            errorMessage = "Failed to load cloud events: \(error.localizedDescription)"
+            // Non-fatal — cloud events unavailable (demo mode or not signed in)
         }
 
-        // 2. AuditLogger in-memory (local policy decisions)
-        let localEvents = auditLogger.recentSecurityEvents()
-        for se in localEvents {
+        // 2. AuditLogger: formal SecurityEvent records (HeartID policy decisions)
+        let policyEvents = auditLogger.recentSecurityEvents()
+        for se in policyEvents {
             combined.append(ActivityEvent(
                 timestamp: se.timestamp,
                 eventType: mapSecurityEventType(se.action),
@@ -67,16 +67,82 @@ class ActivityViewModel: ObservableObject {
             ))
         }
 
-        // Deduplicate by timestamp proximity (within 2 seconds = same event)
+        // 3. AuditLogger: operational entries (sign-in attempts, Watch state, etc.)
+        //    This is where AuthViewModel, WatchConnectivity, and other services log.
+        let operationalEvents = auditLogger.recentOperationalEntries()
+        for op in operationalEvents {
+            combined.append(ActivityEvent(
+                timestamp: op.timestamp,
+                eventType: mapOperationalEventType(op.action),
+                description: formatOperationalDescription(action: op.action, outcome: op.outcome, reason: op.reasonCode),
+                severity: mapOperationalSeverity(outcome: op.outcome),
+                source: .local
+            ))
+        }
+
+        // Deduplicate by timestamp proximity (within 1 second + same description = same event)
         var deduped: [ActivityEvent] = []
         let sorted = combined.sorted { $0.timestamp > $1.timestamp }
         for event in sorted {
-            if !deduped.contains(where: { abs($0.timestamp.timeIntervalSince(event.timestamp)) < 2 && $0.description == event.description }) {
+            if !deduped.contains(where: { abs($0.timestamp.timeIntervalSince(event.timestamp)) < 1 && $0.description == event.description }) {
                 deduped.append(event)
             }
         }
 
         events = deduped
+    }
+
+    // MARK: - Operational event mapping
+
+    private func mapOperationalEventType(_ action: String) -> ActivityEvent.EventType {
+        if action.hasPrefix("sign_in") || action.hasPrefix("sign_out") || action.hasPrefix("demo_mode") || action.hasPrefix("registration") {
+            return .authentication
+        }
+        if action.hasPrefix("watch.") {
+            return .device
+        }
+        if action.hasPrefix("policy.") || action.hasPrefix("session.") || action.hasPrefix("vault.") || action.hasPrefix("hardware.") {
+            return .security
+        }
+        if action.hasPrefix("HeartID") || action.hasPrefix("passkey.") || action.hasPrefix("verify-heart") {
+            return .biometric
+        }
+        return .system
+    }
+
+    private func formatOperationalDescription(action: String, outcome: String, reason: String?) -> String {
+        switch action {
+        case "sign_in_attempt":     return "Sign-in attempted" + (reason.map { " (\($0))" } ?? "")
+        case "sign_in_success":     return "Sign-in successful" + (reason.map { " — \($0)" } ?? "")
+        case "sign_in_failed":      return "Sign-in failed: \(reason ?? outcome)"
+        case "registration_attempt": return "Registration attempted"
+        case "registration_success": return "Registration successful"
+        case "registration_failed":  return "Registration failed: \(reason ?? outcome)"
+        case "sign_out":            return "User signed out"
+        case "sign_out_complete":   return "Sign-out completed"
+        case "demo_mode_attempt":   return "Demo mode requested"
+        case "demo_mode_activated": return "Demo mode activated"
+        case "profile_updated":     return "Profile updated"
+        case "watch.session_activated":   return "Watch connected — \(reason ?? "")"
+        case "watch.activation_error":    return "Watch connection error: \(reason ?? "unknown")"
+        case "watch.became_reachable":    return "Watch became reachable"
+        case "watch.became_unreachable":  return "Watch connection lost"
+        case "watch.state_changed":       return "Watch state changed — \(outcome)"
+        case "watch.session_inactive":    return "Watch session became inactive"
+        case "watch.session_deactivated": return "Watch session deactivated"
+        default:
+            let display = action.replacingOccurrences(of: "_", with: " ").replacingOccurrences(of: ".", with: " ")
+            return "\(display.capitalized) — \(outcome)" + (reason.map { " (\($0))" } ?? "")
+        }
+    }
+
+    private func mapOperationalSeverity(outcome: String) -> ActivityEvent.Severity {
+        switch outcome.lowercased() {
+        case "success", "ok", "connected", "success":   return .info
+        case "failed", "error", "denied":                return .error
+        case "disconnected", "inactive", "deactivated":  return .warning
+        default:                                         return .info
+        }
     }
 
     func clearEvents() async {

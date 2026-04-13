@@ -92,6 +92,20 @@ struct EnterpriseAuthView: View {
                             .cornerRadius(12)
                         }
                         .disabled(isAuthenticating)
+
+                        // Reset button — clears cached MSAL accounts and resets state
+                        Button(action: resetEntraID) {
+                            HStack {
+                                Image(systemName: "arrow.counterclockwise")
+                                Text("Reset Microsoft Login")
+                            }
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity)
+                            .padding(10)
+                            .background(Color(.systemGray5))
+                            .foregroundColor(.primary)
+                            .cornerRadius(10)
+                        }
                     }
                 }
                 
@@ -170,6 +184,31 @@ struct EnterpriseAuthView: View {
         }
     }
     
+    /// Clears all cached MSAL accounts and tokens, resets the EntraID service
+    /// state, and allows the user to start a fresh Microsoft login from scratch.
+    private func resetEntraID() {
+        isAuthenticating = false
+
+        // Clear MSAL cached accounts
+        Task {
+            try? await EntraIDAuthClient.shared.signOut()
+        }
+
+        // Clear Keychain tokens
+        try? SecureCredentialManager.shared.store("", forKey: .entraIDAccessToken)
+        try? SecureCredentialManager.shared.store("", forKey: .entraIDRefreshToken)
+
+        // Reset service state
+        entraIDService.signOut()
+
+        // Log the reset
+        AuditLogger.shared.logOperational(action: "entra_id_reset", outcome: "success",
+                                           reasonCode: "User initiated Microsoft login reset")
+
+        alertMessage = "Microsoft login has been reset. You can now sign in with a different account."
+        showingAlert = true
+    }
+
     private func signOut() {
         entraIDService.signOut()
         
