@@ -10,7 +10,7 @@
 import Foundation
 import OSLog
 
-final class AuditLogger: Sendable {
+final class AuditLogger: @unchecked Sendable {
     static let shared = AuditLogger()
 
     private let logger = Logger(subsystem: "com.argos.cardiacid", category: "SecurityAudit")

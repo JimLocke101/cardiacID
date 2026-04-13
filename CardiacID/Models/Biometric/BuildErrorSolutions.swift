@@ -97,9 +97,10 @@ class BuildErrorSolutions {
     }
     
     /// Verify async functionality works correctly
+    @MainActor
     static func verifyAsyncSupport() async {
         print("🔍 Verifying async support...")
-        
+
         // This should compile and run without "async not supported" errors
         let connectivity = WatchConnectivityService.shared
         

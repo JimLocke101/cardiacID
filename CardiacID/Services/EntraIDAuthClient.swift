@@ -346,22 +346,20 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
     /// Sign in with interactive authentication
     func signIn() async throws -> EntraIDUser {
         #if canImport(MSAL)
-        guard let msalApplication = msalApplication as? MSALPublicClientApplication else {
+        guard let msalApp = msalApplication else {
             throw EntraIDError.notConfigured
         }
 
         // Get presenting view controller
         #if canImport(UIKit) && !os(watchOS)
-        guard let windowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let viewController = await windowScene.windows.first?.rootViewController else {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let viewController = windowScene.windows.first?.rootViewController else {
             throw EntraIDError.noViewController
         }
         #else
-        // For non-UIKit platforms, handle differently
         throw EntraIDError.noViewController
         #endif
 
-        // Create web view parameters
         let webParameters = MSALWebviewParameters(authPresentationViewController: viewController)
 
         // Use scopes from MSALConfiguration
@@ -374,7 +372,7 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
 
         do {
             // Acquire token interactively
-            let result = try await msalApplication.acquireToken(with: interactiveParameters)
+            let result = try await msalApp.acquireToken(with: interactiveParameters)
 
             // Store access token in secure storage
             try credentialManager.store(
@@ -491,7 +489,7 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
     /// Sign in silently using cached account
     func signInSilently() async throws -> EntraIDUser {
         #if canImport(MSAL)
-        guard let msalApplication = msalApplication as? MSALPublicClientApplication else {
+        guard let msalApplication else {
             throw EntraIDError.notConfigured
         }
 
@@ -554,7 +552,7 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
     /// Sign out current user
     func signOut() async throws {
         #if canImport(MSAL)
-        guard let msalApplication = msalApplication as? MSALPublicClientApplication else {
+        guard let msalApplication else {
             throw EntraIDError.notConfigured
         }
 
@@ -598,7 +596,7 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
 
     private func checkCachedAccount() async {
         #if canImport(MSAL)
-        guard let msalApplication = msalApplication as? MSALPublicClientApplication else { return }
+        guard let msalApplication else { return }
 
         do {
             let accounts = try msalApplication.allAccounts()
@@ -660,7 +658,7 @@ class EntraIDAuthClient: NSObject, HoldableService, ObservableObject {
         }
 
         // Refresh token silently
-        let user = try await signInSilently()
+        _ = try await signInSilently()
         guard let token = try? credentialManager.retrieve(forKey: .entraIDAccessToken) else {
             throw EntraIDError.noAccessToken
         }

@@ -380,6 +380,7 @@ public struct HoldStateInfo {
 }
 
 /// Protocol for services that can be put on hold
+@MainActor
 public protocol HoldableService {
     var serviceState: ServiceState { get }
     var holdInfo: HoldStateInfo? { get }

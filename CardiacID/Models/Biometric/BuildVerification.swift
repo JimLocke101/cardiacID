@@ -83,7 +83,7 @@ class WatchConnectivityServiceVerification {
     /// Verify that WatchConnectivityService exists and can be instantiated
     @MainActor
     static func verifyServiceExists() -> Bool {
-        let service = WatchConnectivityService.shared
+        _ = WatchConnectivityService.shared
         return true
     }
 

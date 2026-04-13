@@ -13,6 +13,7 @@ import Foundation
 
 /// Tracks current session trust level and auto-expires on idle.
 /// Observable (SwiftUI-compatible) when implemented as a class.
+@MainActor
 protocol SessionTrustManagerProtocol: AnyObject {
     /// Record a completed HeartID verification.
     /// Updates trust level based on the combined score.

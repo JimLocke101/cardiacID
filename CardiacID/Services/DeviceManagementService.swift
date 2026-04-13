@@ -310,7 +310,7 @@ class DeviceManagementService: NSObject, ObservableObject {
             // Write data to NFC tag
             return DeviceCommandResult(success: true, deviceId: device.id, command: command)
         case .authenticate:
-            if let pattern = heartPattern {
+            if heartPattern != nil {
                 // Authenticate with NFC using heart pattern
                 return DeviceCommandResult(success: true, deviceId: device.id, command: command)
             }

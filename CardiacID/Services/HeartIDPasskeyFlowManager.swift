@@ -91,10 +91,10 @@ final class HeartIDPasskeyFlowManager: ObservableObject {
 
     init(
         networkService: HeartIDPasskeyNetworkService = .shared,
-        coordinator: PasskeyCoordinator = .shared
+        coordinator: PasskeyCoordinator? = nil
     ) {
         self.networkService = networkService
-        self.coordinator = coordinator
+        self.coordinator = coordinator ?? PasskeyCoordinator.shared
     }
 
     // MARK: - Registration
@@ -351,6 +351,6 @@ final class HeartIDPasskeyFlowManager: ObservableObject {
     private func fail(_ error: HeartIDPasskeyError) {
         lastError = error
         flowState = .failed
-        log.error("Flow failed: \(error.localizedDescription ?? "unknown", privacy: .public)")
+        log.error("Flow failed: \(error.localizedDescription, privacy: .public)")
     }
 }
