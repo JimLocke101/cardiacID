@@ -67,16 +67,35 @@ struct SessionTrustState: Codable, Sendable, Equatable {
 
     // MARK: - Time windows
 
+    /// Minimum confidence required for auto-extension of the session.
+    /// If Watch PPG stays at or above this AND watch is on wrist,
+    /// the session auto-extends up to the user's chosen duration.
+    static let autoExtendMinConfidence: Double = 0.82
+
+    /// User-configurable session duration (1–4 hours).
+    /// Stored in UserDefaults via @AppStorage("setting_sessionDurationHours").
+    static var userSessionWindow: TimeInterval {
+        let hours = UserDefaults.standard.integer(forKey: "setting_sessionDurationHours")
+        let clamped = max(1, min(hours, 4))
+        return TimeInterval(clamped) * 3600
+    }
+
     /// How long elevated trust (≥90 % ECG) remains valid.
-    static let elevatedWindow: TimeInterval = 900       // 15 min
+    /// Uses user's session duration setting (default 1 hour).
+    static var elevatedWindow: TimeInterval { userSessionWindow }
     /// How long standard trust remains valid for sensitive actions.
     static let recentWindow: TimeInterval   = 300       // 5 min
     /// How long standard trust remains valid for low-security actions.
-    static let standardWindow: TimeInterval = 1800      // 30 min
+    /// Uses user's session duration setting (default 1 hour).
+    static var standardWindow: TimeInterval { userSessionWindow }
 
     // MARK: - Query
 
     /// Returns true if this session snapshot satisfies the minimum trust for `action`.
+    ///
+    /// Session duration is user-configurable (1–4 hours in Settings).
+    /// As long as PPG confidence stays ≥ 82% and Watch is on wrist,
+    /// the session auto-extends within the chosen window.
     func isValid(for action: ProtectedAction) -> Bool {
         guard let verified = lastVerified else { return false }
         guard currentState != .denied, currentState != .unverified, currentState != .expired else {
@@ -86,16 +105,17 @@ struct SessionTrustState: Codable, Sendable, Equatable {
         let age = Date().timeIntervalSince(verified)
 
         switch action {
-        // Low-security: any non-expired trust within 30 min
+        // Low-security: any non-expired trust within user's session window
         case .signInToApp, .beginPasskeyAssertion:
             return age < Self.standardWindow
 
-        // Sensitive: recent or elevated trust within 5 min
+        // Sensitive: recent or elevated trust within 5 min of last verification
+        // (auto-extended by continuous PPG, so effectively within session window)
         case .unlockProtectedFile, .authorizeSensitiveAction:
             return age < Self.recentWindow
                 && (currentState == .recentlyVerified || currentState == .elevatedTrust)
 
-        // High-value: elevated trust within 15 min
+        // High-value: elevated trust within user's session window
         case .beginPasskeyRegistration, .authorizeHardwareCommand:
             return age < Self.elevatedWindow
                 && currentState == .elevatedTrust

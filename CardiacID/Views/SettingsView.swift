@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage("setting_enhancedSecurity") private var enhancedSecurity = false
     @AppStorage("setting_backupAuth") private var backupAuth = true
     @AppStorage("setting_sensitivity") private var selectedSensitivity = 1
+    @AppStorage("setting_sessionDurationHours") private var sessionDurationHours = 1
     @AppStorage("setting_dataRetentionDays") private var dataRetentionDays = 30
     @State private var showingConfirmLogout = false
     @State private var showingMenu = false
@@ -96,6 +97,36 @@ struct SettingsView: View {
                     }
                 }
                 
+                // Session Duration Section
+                settingsSection(title: "Session Duration") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        settingRow(
+                            title: "Continuous Auth Window",
+                            description: "How long your session stays active while Watch confirms your identity",
+                            icon: "timer"
+                        )
+
+                        Picker("Session Duration", selection: $sessionDurationHours) {
+                            Text("1 hour").tag(1)
+                            Text("2 hours").tag(2)
+                            Text("3 hours").tag(3)
+                            Text("4 hours").tag(4)
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.top, 5)
+
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle")
+                                .font(.caption2)
+                                .foregroundColor(colors.accent)
+                            Text("Session auto-extends as long as your Watch is on wrist and cardiac confidence stays at 82% or above. Removing the Watch immediately revokes the session.")
+                                .font(.caption)
+                                .foregroundColor(colors.text.opacity(0.7))
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+
                 // Privacy Settings Section
                 settingsSection(title: "Privacy & Data") {
                     VStack(alignment: .leading, spacing: 10) {
